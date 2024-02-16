@@ -1,0 +1,9 @@
+{
+	"dependencies": {
+		"@jellybrick/mpris-service": "^2.1.4",
+		"NeteaseCloudMusicApi": "^4.14.0",
+		"axios": "^1.6.3",
+		"jsonfile": "^6.1.0",
+		"volume_supervisor": "^1.0.1"
+	}
+}
