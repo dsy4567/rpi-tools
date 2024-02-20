@@ -8,7 +8,6 @@ const path = require("path");
 const Player = require("@jellybrick/mpris-service");
 
 const menus = require("./menus");
-const { escape } = require("./utils");
 const { setVol } = require("./vol");
 const tts = require("./tts").tts;
 
@@ -206,7 +205,7 @@ async function downloadPlaylist(/** 0: daily */ pid, intelligence) {
         try {
             fs.writeFileSync(n, d.data);
             playlist[name].items.push({ id: m.id, path: n });
-            if (currentPlaylist == name || currentPlaylist == "默认") mocp("-a", escape(n));
+            // if (currentPlaylist == name || currentPlaylist == "默认") mocp("-a", p);
             updatePlaylist();
         } catch (e) {
             console.error(e);
