@@ -1,11 +1,15 @@
 const cp = require("child_process");
-const { escape } = require("./utils");
+
+let /** @type {cp.ChildProcess} */ p;
 
 module.exports = {
     tts(/** @type {String} */ t) {
         console.log(t);
         try {
-            cp.execSync(`espeak -v zh ${escape(t)}`);
-        } catch (e) {}
+            p && p.kill("SIGKILL");
+            p = cp.execFile("espeak", ["-v", "zh", t]);
+        } catch (e) {
+            console.error(e);
+        }
     },
 };

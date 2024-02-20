@@ -20,7 +20,7 @@ function switchPlaylist(pl = "默认") {
     }
     if (!playlist[pl] || pl == "默认") {
         mocp("-c");
-        mocp("-a " + path.join(os.homedir(), "Music"));
+        mocp("-a", path.join(os.homedir(), "Music"));
         mocp("-p");
         return;
     }
@@ -31,7 +31,7 @@ function switchPlaylist(pl = "默认") {
     });
     fs.writeFileSync(p, s);
     mocp("-c");
-    mocp("-a " + p);
+    mocp("-a", p);
     mocp("-p");
 }
 function init() {
@@ -41,10 +41,12 @@ function init() {
     enableShuffle();
     mocp("-f");
 }
-function mocp(arg) {
+function mocp(...arg) {
     try {
-        cp.execSync("mocp " + arg);
-    } catch (e) {}
+        cp.execFileSync("mocp", arg);
+    } catch (e) {
+        console.error(e);
+    }
 }
 function enableShuffle() {
     tts("随机播放");
@@ -204,7 +206,7 @@ async function downloadPlaylist(/** 0: daily */ pid, intelligence) {
         try {
             fs.writeFileSync(n, d.data);
             playlist[name].items.push({ id: m.id, path: n });
-            if (currentPlaylist == name || currentPlaylist == "默认") mocp("-a " + escape(n));
+            if (currentPlaylist == name || currentPlaylist == "默认") mocp("-a", escape(n));
             updatePlaylist();
         } catch (e) {
             console.error(e);
