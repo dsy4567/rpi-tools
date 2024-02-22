@@ -9,11 +9,12 @@ const Player = require("@jellybrick/mpris-service");
 
 const menus = require("./menus");
 const { setVol } = require("./vol");
+const { ncmStatusCheck, sleep } = require("./utils");
 const tts = require("./tts").tts;
 
 const /** @type {jsonfile.JFWriteOptions} */ jsonfileOptions = { spaces: 2 };
 
-function switchPlaylist(pl = "默认") {
+async function switchPlaylist(pl = "默认") {
     if (!isNaN(+pl)) {
         pl = Object.keys(playlist)[+pl];
     }
@@ -67,7 +68,7 @@ function enableRepeat() {
 }
 function updatePlaylist() {
     try {
-        jsonfile.writeFileSync(p, playlist, jsonfileOptions);
+        jsonfile.writeFileSync(playlistPath, playlist, jsonfileOptions);
     } catch (e) {
         console.error(e);
         tts("无法更新播放列表");
@@ -108,7 +109,6 @@ async function checkLoginStatus() {
     }
 }
 async function downloadPlaylist(/** 0: daily */ pid, intelligence) {
-    await checkLoginStatus();
     let j;
     if (pid == 0 && logged) {
         // 日推 需要登录
@@ -135,10 +135,18 @@ async function downloadPlaylist(/** 0: daily */ pid, intelligence) {
         (intelligence ? "心动模式-" : "") +
         (pid == 0
             ? "日推"
-            : `${(await ncm.playlist_detail({ id: pid, cookie })).body.playlist.name}-${pid}`);
+            : `${
+                  (await ncm.playlist_detail({ id: pid, cookie })).body.playlist
+                      .name
+              }-${pid}`);
     let ids = [];
     j = await j;
-    (pid == 0 ? j.body.data.dailySongs : intelligence ? j.body.data : j.body.songs).forEach(m => {
+    (pid == 0
+        ? j.body.data.dailySongs
+        : intelligence
+        ? j.body.data
+        : j.body.songs
+    ).forEach(m => {
         ids.push(intelligence ? m.songInfo.id : m.id);
     });
 
@@ -159,7 +167,10 @@ async function downloadPlaylist(/** 0: daily */ pid, intelligence) {
                         ars.push(a.name);
                     });
                     return ars.join("、");
-                })()}-${m.name}.mp3`.replaceAll(/[\(\)'"\\\&\%\$\#\[\]\{\}\*\/ ]/g, "-")
+                })()}-${m.name}.mp3`.replaceAll(
+                    /[\(\)'"\\\&\%\$\#\[\]\{\}\*\/ ]/g,
+                    "-"
+                )
         );
         try {
             if (fs.existsSync(n)) {
@@ -183,19 +194,14 @@ async function downloadPlaylist(/** 0: daily */ pid, intelligence) {
                 u = u.body.data[0].url;
                 if (!u) return true;
             };
-            const sleep = async () =>
-                new Promise((resolve, reject) => {
-                    setTimeout(() => {
-                        resolve();
-                    }, 5 * 60 * 1000);
-                });
+
             try {
                 co = await f();
                 break;
             } catch (e) {
                 console.error("下载失败，5 分钟后重试 ", u.body, " ", e);
                 tts("下载失败，5 分钟后重试");
-                await sleep();
+                await sleep(5 * 60 * 1000);
             }
         }
         if (co) continue;
@@ -284,27 +290,88 @@ menus.addMenuItems("播放列表", {
 menus.addMenuItems("主菜单", {
     l: async k => {
         try {
-            const c = await getCurrentMusic(),
-                like = false;
+            const c = await getCurrentMusic();
             let i,
-                p = (await menus.input("最喜欢")) == "y" ? "最喜欢" : "喜欢";
-            for (i = 0; i < playlist[p].length; i++) {
-                const m = playlist[p][i];
+                p = (await menus.input("最喜欢")) == "y" ? "最喜欢" : "喜欢",
+                like = false;
+            for (i = 0; i < playlist[p].items.length; i++) {
+                const m = playlist[p].items[i];
                 if (m.id == c.id) {
                     like = true;
                     break;
                 }
             }
+            const add2likeOnline = () => {
+                const p = path.join(__dirname, "../wait2add2like.txt");
+                ncmStatusCheck(
+                    ncm.like({
+                        id: c.id,
+                        cookie,
+                        like: "" + !like,
+                        r: "" + Math.random(),
+                    })
+                )
+                    .then(d => {
+                        try {
+                            fs.existsSync(p) &&
+                                fs
+                                    .readFileSync(p)
+                                    .toString()
+                                    .split(",")
+                                    .forEach(async s => {
+                                        s = s.replace(/[\n\r ]/gi, "");
+                                        if (!s) return;
+                                        const [op, id] = s.split(":"),
+                                            like =
+                                                op == "rm" ? "false" : "true";
+                                        console.log(op, like, id);
+
+                                        try {
+                                            await ncmStatusCheck(
+                                                ncm.like({
+                                                    id,
+                                                    cookie,
+                                                    like,
+                                                    r: "" + Math.random(),
+                                                })
+                                            );
+                                        } catch (e) {
+                                            console.error(e);
+                                            tts("无法添加到网易云账号内的喜欢");
+                                        }
+                                    });
+                            tts("已添加/移除网易云账号内的喜欢");
+                            fs.writeFileSync(p, "");
+                        } catch (e) {
+                            console.error(e);
+                        }
+                    })
+                    .catch(e => {
+                        console.error(e);
+                        try {
+                            fs.appendFileSync(
+                                p,
+                                `${!like ? "add" : "rm"}:${c.id},`
+                            );
+                        } catch (e) {
+                            console.error(e);
+                        }
+                    });
+            };
             if (!like) {
                 playlist[p].items.push(c);
                 playlist[p].items = [...new Set(playlist[p].items)];
-                tts("已添加到喜欢");
+                p == "喜欢" && add2likeOnline();
+                tts(`已添加到${p}`);
             } else {
                 playlist[p].items.splice(i, 1);
-                tts("已从喜欢移除");
+                p == "喜欢" && add2likeOnline();
+                tts(`已从${p}移除`);
             }
             updatePlaylist();
-        } catch (e) {}
+        } catch (e) {
+            console.error(e);
+        }
     },
     D: async k => {
         if (downloading) {
@@ -388,7 +455,7 @@ menus.addMenuItems("主菜单", {
     },
 });
 
-const p = path.join(os.homedir(), "Music/playlist.json");
+const playlistPath = path.join(os.homedir(), "Music/playlist.json");
 let /** @type {Record<String, { id: Number, items: {path: String, id: Number}[]}>} */ playlist;
 
 let cookie;
@@ -400,9 +467,9 @@ try {
 let logged = false,
     uid = -1;
 
-if (fs.existsSync(p)) playlist = jsonfile.readFileSync(p);
+if (fs.existsSync(playlistPath)) playlist = jsonfile.readFileSync(playlistPath);
 else {
-    fs.mkdirSync(path.parse(p).dir, { recursive: true });
+    fs.mkdirSync(path.parse(playlistPath).dir, { recursive: true });
     playlist = {
         默认: {
             id: null,
@@ -421,7 +488,14 @@ else {
             items: [],
         },
     };
-    jsonfile.writeFileSync(p, playlist, jsonfileOptions);
+    jsonfile.writeFileSync(playlistPath, playlist, jsonfileOptions);
 }
+checkLoginStatus();
 
-module.exports = { enableAutoNext, enableRepeat, enableShuffle, mocp, switchPlaylist };
+module.exports = {
+    enableAutoNext,
+    enableRepeat,
+    enableShuffle,
+    mocp,
+    switchPlaylist,
+};
