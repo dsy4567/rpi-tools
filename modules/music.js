@@ -9,7 +9,7 @@ const Player = require("@jellybrick/mpris-service");
 
 const menus = require("./menus");
 const { setVol } = require("./vol");
-const { ncmStatusCheck, sleep } = require("./utils");
+const { ncmStatusCheck, sleep, input, chooseItem } = require("./utils");
 const tts = require("./tts").tts;
 
 const /** @type {jsonfile.JFWriteOptions} */ jsonfileOptions = { spaces: 2 };
@@ -108,7 +108,53 @@ async function checkLoginStatus() {
         };
     }
 }
+async function downloadSong(id) {
+    const l = (await ncm.song_detail({ ids: "" + id })).body;
+    console.log(l);
+    const m = l.songs[0];
+    let n;
+    if (
+        !(await (async () => {
+            try {
+                console.log("downloading:", m.id, m.name);
+                n = path.join(
+                    os.homedir(),
+                    `Music/` +
+                        `${m.id}-${(() => {
+                            let ars = [];
+                            m.ar.forEach(a => {
+                                ars.push(a.name);
+                            });
+                            return ars.join("、");
+                        })()}-${m.name}.mp3`.replaceAll(/[\(\)'"\\\&\%\$\#\[\]\{\}\*\/ ]/g, "-")
+                );
+                if (fs.existsSync(n)) {
+                    return true;
+                }
+                if (m.fee == 4 || m.fee == 1) {
+                    tts("vip 音乐");
+                    return false;
+                }
+
+                let resp = await ncm.song_url_v1({ id: m.id, level: "higher" });
+                console.log(resp);
+                let d = await axios.get(resp.body.data[0].url, { responseType: "arraybuffer" });
+
+                fs.writeFileSync(n, d.data);
+            } catch (e) {
+                console.error(e);
+                return false;
+            }
+            console.log(n);
+        })())
+    )
+        tts("失败");
+    else {
+        mocp("-l", n);
+    }
+}
 async function downloadPlaylist(/** 0: daily */ pid, intelligence) {
+    if (pid === undefined || pid === null) return;
     let j;
     if (pid == 0 && logged) {
         // 日推 需要登录
@@ -135,18 +181,10 @@ async function downloadPlaylist(/** 0: daily */ pid, intelligence) {
         (intelligence ? "心动模式-" : "") +
         (pid == 0
             ? "日推"
-            : `${
-                  (await ncm.playlist_detail({ id: pid, cookie })).body.playlist
-                      .name
-              }-${pid}`);
+            : `${(await ncm.playlist_detail({ id: pid, cookie })).body.playlist.name}-${pid}`);
     let ids = [];
     j = await j;
-    (pid == 0
-        ? j.body.data.dailySongs
-        : intelligence
-        ? j.body.data
-        : j.body.songs
-    ).forEach(m => {
+    (pid == 0 ? j.body.data.dailySongs : intelligence ? j.body.data : j.body.songs).forEach(m => {
         ids.push(intelligence ? m.songInfo.id : m.id);
     });
 
@@ -167,10 +205,7 @@ async function downloadPlaylist(/** 0: daily */ pid, intelligence) {
                         ars.push(a.name);
                     });
                     return ars.join("、");
-                })()}-${m.name}.mp3`.replaceAll(
-                    /[\(\)'"\\\&\%\$\#\[\]\{\}\*\/ ]/g,
-                    "-"
-                )
+                })()}-${m.name}.mp3`.replaceAll(/[\(\)'"\\\&\%\$\#\[\]\{\}\*\/ ]/g, "-")
         );
         try {
             if (fs.existsSync(n)) {
@@ -292,7 +327,7 @@ menus.addMenuItems("主菜单", {
         try {
             const c = await getCurrentMusic();
             let i,
-                p = (await menus.input("最喜欢")) == "y" ? "最喜欢" : "喜欢",
+                p = (await input("最喜欢")) == "y" ? "最喜欢" : "喜欢",
                 like = false;
             for (i = 0; i < playlist[p].items.length; i++) {
                 const m = playlist[p].items[i];
@@ -322,8 +357,7 @@ menus.addMenuItems("主菜单", {
                                         s = s.replace(/[\n\r ]/gi, "");
                                         if (!s) return;
                                         const [op, id] = s.split(":"),
-                                            like =
-                                                op == "rm" ? "false" : "true";
+                                            like = op == "rm" ? "false" : "true";
                                         console.log(op, like, id);
 
                                         try {
@@ -349,10 +383,7 @@ menus.addMenuItems("主菜单", {
                     .catch(e => {
                         console.error(e);
                         try {
-                            fs.appendFileSync(
-                                p,
-                                `${!like ? "add" : "rm"}:${c.id},`
-                            );
+                            fs.appendFileSync(p, `${!like ? "add" : "rm"}:${c.id},`);
                         } catch (e) {
                             console.error(e);
                         }
@@ -378,8 +409,8 @@ menus.addMenuItems("主菜单", {
             downloading = false;
             return tts("已取消下载");
         }
-        const id = +(await menus.input("id")),
-            intelligence = (await menus.input("心动模式")) == "y";
+        const id = +(await input("id")),
+            intelligence = (await input("心动模式")) == "y";
         try {
             await downloadPlaylist(id, intelligence);
         } catch (e) {
@@ -392,11 +423,56 @@ menus.addMenuItems("主菜单", {
             tts(path.parse((await getCurrentMusic()).path).name);
         } catch (e) {}
     },
+    s: async k => {
+        if (!(await checkLoginStatus()).logged) tts("未登录");
+        const kwd = await input("搜索词");
+        if (!kwd) return;
+        ncmStatusCheck(
+            await ncm.search({
+                keywords: kwd,
+                cookie,
+                type: "1018",
+            })
+        )
+            .then(async resp => {
+                const songs = resp.body.result.song.songs || [],
+                    playLists = resp.body.result.playList.playLists || [];
+                let /** @type {Record<String, {id: Number}} */ items = {};
+                if ((await input("1 单曲 2 歌单")) == "2") {
+                    playLists.forEach(item => {
+                        items[`${item.name} id ${item.id}`] = item.id;
+                    });
+                    const keys = Object.keys(items);
+                    downloadPlaylist(items[await chooseItem(keys[0], keys)]);
+                } else {
+                    songs.forEach(item => {
+                        items[
+                            `${item.name} 由 ${(() => {
+                                let ars = [];
+                                item.ar.forEach(a => ars.push(a.name));
+                                return ars.join(" ");
+                            })()} 演唱 id ${item.id}`
+                        ] = item.id;
+                    });
+                    const keys = Object.keys(items);
+                    downloadSong(items[await chooseItem(keys[0], keys)]);
+                }
+            })
+            .catch(e => {
+                console.error(e);
+                tts("搜索失败");
+            });
+    },
     I: k => {
         init();
     },
-    P: k => {
-        menus.pushMenuState("播放列表");
+    U: async k => {
+        let items = {};
+
+        downloadPlaylist(playlist[await chooseItem("更新播放列表", Object.keys(playlist))].id);
+    },
+    p: async k => {
+        switchPlaylist(await chooseItem("选择播放列表", Object.keys(playlist)));
     },
     R: k => {
         enableRepeat();

@@ -1,3 +1,4 @@
+const cp = require("child_process");
 const readline = require("readline");
 const { tts } = require("./tts");
 
@@ -26,18 +27,8 @@ function addMenuItems(
     Object.assign(menus[menu], obj);
     return menus;
 }
-async function input(prompt) {
-    return new Promise((resolve, reject) => {
-        pushMenuState("input");
-        inpStr = "";
-        tts(prompt);
-        inpCb = resolve;
-    });
-}
 
 let menuStates = [];
-let inpStr = "",
-    inpCb = s => {};
 let menus = {
     主菜单: {
         Q: k => {
@@ -57,22 +48,10 @@ let menus = {
         S: k => {
             cp.exec("sudo shutdown now");
         },
-        i: async k => {
-            tts(await input("aaa"));
-        },
     },
     键盘锁定: {
         default: k => {
             tts("键盘锁定");
-        },
-    },
-    input: {
-        "\r": k => {
-            popMenuState();
-            inpCb(inpStr);
-        },
-        default: k => {
-            inpStr += k;
         },
     },
 };
@@ -85,7 +64,18 @@ process.stdin.on("keypress", (chunk, key) => {
 
     const menu = menus[getMenuState()],
         f = menu?.[key.sequence];
-    f ? f(key.sequence) : menu?.default?.(key.sequence);
+    try {
+        f ? f(key.sequence) : menu?.default?.(key.sequence);
+    } catch (e) {
+        console.error(e);
+        tts("操作失败");
+    }
 });
 
-module.exports = { addMenuItems, getMenus, getMenuState, pushMenuState, popMenuState, input };
+module.exports = {
+    addMenuItems,
+    getMenus,
+    getMenuState,
+    pushMenuState,
+    popMenuState,
+};
