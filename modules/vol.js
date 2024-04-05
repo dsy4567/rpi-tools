@@ -18,16 +18,16 @@ menus.addMenuItems("主菜单", {
 });
 menus.addMenuItems("音量调节", {
     b: k => {
-        setVol(-10);
+        setVol(-3);
     },
     g: k => {
-        setVol(-20);
+        setVol(-5);
     },
     n: k => {
-        setVol(10);
+        setVol(3);
     },
     h: k => {
-        setVol(20);
+        setVol(5);
     },
 });
 

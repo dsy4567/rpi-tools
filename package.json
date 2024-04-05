@@ -1,8 +1,10 @@
 {
 	"dependencies": {
 		"@jellybrick/mpris-service": "^2.1.4",
+		"@types/node": "^20.12.4",
 		"NeteaseCloudMusicApi": "^4.14.0",
 		"axios": "^1.6.3",
+		"cookie": "^0.6.0",
 		"jsonfile": "^6.1.0",
 		"volume_supervisor": "^1.0.1"
 	}

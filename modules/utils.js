@@ -1,11 +1,10 @@
-const ncm = require("NeteaseCloudMusicApi");
 const menus = require("./menus");
 const tts = require("./tts").tts;
-const axios = require("axios").default;
 
 let inpStr = "",
     inpCb = s => {};
-let /** @type {Record<String, {selectedIndex: Number, items: String[]}>} */ itemChooserStates = {},
+let /** @type {Record<String, {selectedIndex: Number, items: String[]}>} */ itemChooserStates =
+        {},
     currentItemChooser = "",
     itemChooserCb = () => {};
 
@@ -13,18 +12,15 @@ module.exports = {
     escape(s) {
         return s.replace(/[\(\)'"\\\&\%\$\#\[\]\{\}\* ]/g, "\\$&");
     },
-    async onlineStatusCheck() {
-        return new Promise(resolve => {
-            axios
-                .get("https://www.baidu.com", { validateStatus: () => true })
-                .then(r => resolve(true))
-                .catch(e => resolve(false));
-        });
-    },
-    async ncmStatusCheck(/** @type {Promise<ncm.Response>} */ res) {
-        const resp = await res;
-        if (resp.body.code === 200) return resp;
-        throw new Error(resp);
+    formattedDate() {
+        const date = new Date();
+        const year = date.getFullYear();
+        const month = (date.getMonth() + 1).toString().padStart(2, "0");
+        const day = date.getDate().toString().padStart(2, "0");
+        const hour = date.getHours().toString().padStart(2, "0");
+        const minute = date.getMinutes().toString().padStart(2, "0");
+        const second = date.getSeconds().toString().padStart(2, "0");
+        return `${year}-${month}-${day}-${hour}-${minute}-${second}`;
     },
     async sleep(t) {
         return new Promise((resolve, reject) => {
@@ -49,7 +45,11 @@ module.exports = {
                 items,
                 selectedIndex: itemChooserStates[prompt]?.selectedIndex || 0,
             };
-            tts(prompt);
+            tts(
+                prompt +
+                    " " +
+                    items[itemChooserStates[prompt]?.selectedIndex || 0]
+            );
             itemChooserCb = resolve;
         });
     },
