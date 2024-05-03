@@ -110,11 +110,27 @@ const player = new Player({
 let menuStates = [];
 let quickMenus = {
     喜欢: "l",
-    返回上一级: "\x1B",
     选择播放列表: "p",
     更新播放列表: "U",
     歌曲信息: "i",
-    初始化: "I",
+    关机: () => {
+        cp.execSync("sudo shutdown 0");
+    },
+    定时关机: () => {
+        cp.execSync("sudo shutdown 40");
+    },
+    重启: () => {
+        cp.execSync("sudo reboot");
+    },
+    拍照: k => {
+        tts("拍照中");
+        const { formattedDate } = require("./utils");
+        mkdirSync(path.join(homedir(), "Photos"), { recursive: true });
+        cp.exec(`sudo rpicam-still -o Photos/${formattedDate()}.jpeg`, e => {
+            if (e) return tts("拍照失败");
+            tts("拍照成功");
+        });
+    },
 };
 let menus = {
     主菜单: {
@@ -126,7 +142,9 @@ let menus = {
         },
         M: async k => {
             let m = await chooseItem("快捷菜单", Object.keys(quickMenus));
-            activeMenu(m && quickMenus[m]);
+            typeof quickMenus[m] === "string"
+                ? activeMenu(m && quickMenus[m])
+                : quickMenus[m]();
         },
         // l: k => {
         //     pushMenuState("键盘锁定");
@@ -140,10 +158,16 @@ let menus = {
             cp.exec("sudo shutdown now");
         },
         c: k => {
-            tts("拍照");
-            const { formattedDate, chooseItem } = require("./utils");
+            tts("拍照中");
+            const { formattedDate } = require("./utils");
             mkdirSync(path.join(homedir(), "Photos"), { recursive: true });
-            cp.exec(`sudo rpicam-still -o Photos/${formattedDate()}.jpeg`);
+            cp.exec(
+                `sudo rpicam-still -o Photos/${formattedDate()}.jpeg`,
+                e => {
+                    if (e) return tts("拍照失败");
+                    tts("拍照成功");
+                }
+            );
         },
         p: k => {
             const { chooseItem } = require("./utils");
