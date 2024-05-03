@@ -590,8 +590,8 @@ menus.addMenuItems("主菜单", {
             })
         )
             .then(async resp => {
-                const songs = resp.body.result.song.songs || [],
-                    playLists = resp.body.result.playList.playLists || [];
+                const songs = resp.body.result?.song?.songs || [],
+                    playLists = resp.body.result?.playList?.playLists || [];
                 let /** @type {Record<String, {id: Number}} */ items = {};
                 if ((await input("1 单曲 2 歌单")) == "2") {
                     playLists.forEach(item => {
