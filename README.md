@@ -25,7 +25,7 @@
 下载源码，安装依赖
 
 ```bash
-sudo apt install nodejs npm mocp pulseaudio pulseaudio-module-bluetooth bluez espeak cpufrequtils
+sudo apt install nodejs npm moc pulseaudio pulseaudio-module-bluetooth bluez espeak cpufrequtils screen
 git clone https://github.com/dsy4567/rpi-tools
 cd rpi-tools
 npm i
