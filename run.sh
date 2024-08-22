@@ -1,4 +1,5 @@
 #!/bin/bash
+cd `dirname $0`
 exitCode=0
 for i in {1..5}
 do
