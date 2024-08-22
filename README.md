@@ -31,17 +31,17 @@ cd rpi-tools
 npm i
 ```
 
-登录（可选）
+登录网易云音乐（可选）
 
-在 `rpi-tools` 文件夹下创建 `cookie.txt`，内容如下：
+在 `rpi-tools/data/` 文件夹下创建 `ncmCookie.txt`，内容参考：
 
-```
+```text
 MUSIC_U=******;
 ```
 
 运行
 
-```
+```bash
 node ./main.js
 ```
 
