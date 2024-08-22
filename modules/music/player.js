@@ -5,7 +5,7 @@ const fs = require("graceful-fs");
 const mpg123 = require("mpg123");
 const path = require("path");
 
-const { enableMprisService } = require("../config");
+const { enableMprisService, defaultPlayMode } = require("../config");
 const {
     input,
     chooseItem,
@@ -152,16 +152,6 @@ async function updatePlayerStatus(
     playerStatus.song = ncm.getPlaylistFile().songs[playerStatus.songId];
     playerStatus.songName =
         playerStatus.song?.name || path.parse(playerStatus.path).name;
-
-    if (mprisService) {
-        mprisService.metadata = {
-            "mpris:trackid": mprisService.objectPath("track/0"),
-            "mpris:length": mpgPlayer.length * 1000 || 0,
-            "xesam:title": playerStatus.songName,
-            "xesam:artist": playerStatus.song?.artists.map(ar => ar.name) || [],
-        };
-        mprisService.playbackStatus = playerStatus.playing;
-    }
 }
 function playPause() {
     mpgPlayer.file && mpgPlayer.pause();
@@ -211,16 +201,12 @@ let controlledByUser = false;
 let mprisService;
 if (enableMprisService) {
     const mp = cp.execFile("mpris-proxy", (e, stdout, stderr) => {
-        if (e)
-            return error(
-                "无法启动 mpris 服务",
-                e,
-                "\nstdout:",
-                stdout,
-                "\nstderr:",
-                stderr
-            );
+        if (e) return error("无法启动 mpris 服务", e);
     });
+    mp.stdout.on("data", d => {
+        log("[mpris-proxy]", d);
+    });
+    mp.stderr.on("data", d => error("[mpris-proxy]", d));
     process.on("exit", () => {
         mp.kill();
     });
@@ -263,25 +249,25 @@ if (enableMprisService) {
                         break;
                     case "next": // 下一曲按钮
                         if (isMainMenu()) {
-                            activeMenu("b"); // 下一个菜单项
-                        } else {
                             if (playerStatus.playing) {
                                 activeMenu("n"); // 下一曲
                             } else {
                                 activeMenu("M"); // 快捷菜单
                             }
+                        } else {
+                            activeMenu("n"); // 下一个菜单项
                         }
 
                         break;
                     case "previous": // 上一曲按钮
                         if (isMainMenu()) {
-                            activeMenu("b"); // 上一个菜单项
-                        } else {
                             if (playerStatus.playing) {
                                 activeMenu("M"); // 快捷菜单
                             } else {
                                 activeMenu("b"); // 上一曲
                             }
+                        } else {
+                            activeMenu("b"); // 上一个菜单项
                         }
                         break;
 
@@ -290,7 +276,7 @@ if (enableMprisService) {
                 }
             });
         });
-    }, 1000);
+    }, 5000);
 }
 
 mpgPlayer.on("pause", e => {
@@ -462,7 +448,7 @@ ncm.playlistEmitter.on("update", data => {
     }
 });
 
-// setPlayMode("shuffle");
+setPlayMode(defaultPlayMode);
 switchPlaylist(0, false);
 
 module.exports = {
