@@ -1,11 +1,38 @@
 {
-	"dependencies": {
-		"@jellybrick/mpris-service": "^2.1.4",
-		"@types/node": "^20.12.4",
-		"NeteaseCloudMusicApi": "^4.14.0",
-		"axios": "^1.6.3",
-		"cookie": "^0.6.0",
-		"jsonfile": "^6.1.0",
-		"volume_supervisor": "^1.0.1"
-	}
+    "name": "@dsy4567/rpi-tools",
+    "author": "dsy4567",
+    "version": "1.0.0",
+    "homepage": "https://github.com/dsy4567/rpi-tools",
+    "bugs": "https://github.com/dsy4567/rpi-tools/issues",
+    "main": "./main.js",
+    "os": [
+        "linux"
+    ],
+    "engines": {
+        "node": ">=22"
+    },
+    "license": "MIT",
+    "scripts": {
+        "start": "node ./main.js"
+    },
+    "bin": {
+        "rpi-tools": "./main.js"
+    },
+    "dependencies": {
+        "@jellybrick/mpris-service": "^2.1.4",
+        "NeteaseCloudMusicApi": "^4.22.0",
+        "axios": "^1.7.4",
+        "cli-color": "^2.0.4",
+        "cookie": "^0.6.0",
+        "graceful-fs": "^4.2.11",
+        "jsonfile": "^6.1.0",
+        "mpg123": "^0.2.3",
+        "sanitize-filename": "^1.6.3",
+        "volume_supervisor": "^1.0.1"
+    },
+    "devDependencies": {
+        "@types/cli-color": "^2.0.6",
+        "@types/node": "^22.5.0",
+        "typescript": "^5.5.4"
+    }
 }

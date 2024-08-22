@@ -1,3 +1,5 @@
+"use strict";
+
 const vc = require("volume_supervisor").volumeControl;
 
 const menus = require("./menus");
@@ -11,7 +13,7 @@ function setVol(add = 0) {
     vc.setGlobalVolume(vol);
 }
 
-menus.addMenuItems("主菜单", {
+menus.addMenuItems("主页", {
     v: k => {
         menus.pushMenuState("音量调节");
     },
@@ -32,7 +34,9 @@ menus.addMenuItems("音量调节", {
 });
 
 setInterval(async () => {
-    if ((await vc.getGlobalVolume()) >= 100) setVol();
+    try {
+        if ((await vc.getGlobalVolume()) >= 100) setVol();
+    } catch (e) {}
 }, 5000);
 
 module.exports = {

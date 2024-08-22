@@ -1,26 +1,106 @@
-const menus = require("./menus");
-const tts = require("./tts").tts;
+"use strict";
 
-let inpStr = "",
-    inpCb = s => {};
-let /** @type {Record<String, {selectedIndex: Number, items: String[]}>} */ itemChooserStates =
-        {},
-    currentItemChooser = "",
-    itemChooserCb = () => {};
+const clc = require("cli-color");
+const cp = require("child_process");
+const fs = require("graceful-fs");
+const path = require("path");
+const sf = require("sanitize-filename");
+
+const D = new Date();
+let numberOfLogWriteFailures = 0,
+    unwrittenLogs = "",
+    logInterval;
+let appRootPath = path.join(__dirname, "../");
+let dateForFileName;
+
+function log(
+    /** @type {"info" | "error" | "warn"} */ type,
+    moduleName,
+    ...args
+) {
+    const colors = {
+        info: "greenBright",
+        warn: "yellowBright",
+        error: "redBright",
+    };
+    console[type](
+        clc[colors[type] || "greenBright"](`${type[0].toUpperCase()}:`),
+        clc.cyanBright.cyan(`[${moduleName}]`),
+        ...args
+    );
+    unwrittenLogs +=
+        [
+            `${type[0].toUpperCase()}:`,
+            `[${new Date() - D}] [${moduleName}]`,
+            ...args.map(arg => {
+                const s = "" + arg;
+                return typeof arg === "object"
+                    ? s === "[object Object]"
+                        ? JSON.stringify(arg)
+                        : s
+                    : arg;
+            }),
+        ].join(" ") + "\n";
+
+    const f = () => {
+        if (unwrittenLogs) {
+            try {
+                fs.appendFileSync(
+                    path.join(
+                        module.exports.appRootPath.get(),
+                        `data/logs/${dateForFileName}.log`
+                    ),
+                    unwrittenLogs
+                );
+                unwrittenLogs = "";
+            } catch (e) {
+                console.error("无法写入日志文件", e);
+            }
+        }
+    };
+    dateForFileName || (dateForFileName = module.exports.dateForFileName());
+    logInterval ||
+        ((logInterval = setInterval(f, 10000)) && process.on("exit", f));
+}
 
 module.exports = {
+    appRootPath: {
+        get() {
+            return appRootPath;
+        },
+        set(p) {
+            return (appRootPath = p);
+        },
+    },
     escape(s) {
         return s.replace(/[\(\)'"\\\&\%\$\#\[\]\{\}\* ]/g, "\\$&");
     },
-    formattedDate() {
-        const date = new Date();
-        const year = date.getFullYear();
-        const month = (date.getMonth() + 1).toString().padStart(2, "0");
-        const day = date.getDate().toString().padStart(2, "0");
-        const hour = date.getHours().toString().padStart(2, "0");
-        const minute = date.getMinutes().toString().padStart(2, "0");
-        const second = date.getSeconds().toString().padStart(2, "0");
-        return `${year}-${month}-${day}-${hour}-${minute}-${second}`;
+    dateForFileName() {
+        try {
+            return sf(cp.execSync("date").toString()).replaceAll(" ", "-");
+        } catch (e) {
+            const date = new Date();
+            const year = date.getFullYear();
+            const month = (date.getMonth() + 1).toString().padStart(2, "0");
+            const day = date.getDate().toString().padStart(2, "0");
+            const hour = date.getHours().toString().padStart(2, "0");
+            const minute = date.getMinutes().toString().padStart(2, "0");
+            const second = date.getSeconds().toString().padStart(2, "0");
+            return `${year}-${month}-${day}-${hour}-${minute}-${second}`;
+        }
+    },
+    logger(moduleName = "???") {
+        return {
+            log(...args) {
+                log("info", moduleName, ...args);
+            },
+            error(...args) {
+                log("error", moduleName, ...args);
+            },
+            warn(...args) {
+                log("warn", moduleName, ...args);
+            },
+        };
     },
     async sleep(t) {
         return new Promise((resolve, reject) => {
@@ -29,66 +109,11 @@ module.exports = {
             }, t);
         });
     },
-    async input(prompt) {
-        return new Promise((resolve, reject) => {
-            menus.pushMenuState("input");
-            inpStr = "";
-            tts(prompt);
-            inpCb = resolve;
-        });
-    },
-    async chooseItem(prompt, items) {
-        return new Promise((resolve, reject) => {
-            menus.pushMenuState("chooseItem");
-            currentItemChooser = prompt;
-            itemChooserStates[prompt] = {
-                items,
-                selectedIndex: itemChooserStates[prompt]?.selectedIndex || 0,
-            };
-            tts(
-                prompt +
-                    " " +
-                    items[itemChooserStates[prompt]?.selectedIndex || 0]
-            );
-            itemChooserCb = resolve;
-        });
+    shuffle(arr) {
+        return arr.sort(() => Math.random() - 0.5);
     },
 };
 
-menus.addMenuItems("input", {
-    "\r": k => {
-        console.log("\n" + inpStr);
-        menus.popMenuState();
-        inpCb(inpStr);
-    },
-    "\x7F": k => {
-        inpStr = inpStr.substring(0, inpStr.length - 1);
-        process.stdout.write("\x08");
-    },
-    default: k => {
-        inpStr += k;
-        process.stdout.write(k);
-    },
-});
-menus.addMenuItems("chooseItem", {
-    b: k => {
-        const state = itemChooserStates[currentItemChooser],
-            items = state.items,
-            len = state.items.length;
-        if (--state.selectedIndex < 0) state.selectedIndex = len - 1;
-        tts(items[state.selectedIndex]);
-    },
-    n: k => {
-        const state = itemChooserStates[currentItemChooser],
-            items = state.items,
-            len = state.items.length;
-        if (++state.selectedIndex > len - 1) state.selectedIndex = 0;
-        tts(items[state.selectedIndex]);
-    },
-    "\r": k => {
-        const state = itemChooserStates[currentItemChooser],
-            items = state.items;
-        itemChooserCb(items[state.selectedIndex]);
-        menus.popMenuState();
-    },
+fs.mkdirSync(path.join(module.exports.appRootPath.get(), "data/logs/"), {
+    recursive: true,
 });

@@ -1,15 +1,25 @@
+"use strict";
+
 const cp = require("child_process");
 
-let /** @type {cp.ChildProcess} */ p;
+const { TTSEspeakLanguage } = require("./config");
+const { logger } = require("./utils");
+const { log, error } = logger("TTS");
+
+let /** @type {cp.ChildProcess} */ p, /** @type {NodeJS.Timeout} */ timeout;
 
 module.exports = {
     tts(/** @type {String} */ t) {
-        console.log(t);
-        try {
-            p && p.kill("SIGKILL");
-            p = cp.execFile("espeak", ["-v", "zh", t]);
-        } catch (e) {
-            console.error(e);
-        }
+        clearTimeout(timeout);
+        timeout = setTimeout(() => {
+            log(t);
+            try {
+                p && p.kill();
+                p = cp.execFile("espeak", ["-v", TTSEspeakLanguage || "zh", t]);
+            } catch (e) {
+                error(e);
+            }
+        }, 100);
+        return t;
     },
 };
