@@ -178,9 +178,11 @@ async function downloadSong(
                 songs: ids,
             });
 
+        let timeUsed = 5000;
         for (let i = 0; i < sd.songs.length; i++) {
+            const D = new Date();
             if (!downloading) {
-                return;
+                break;
             }
 
             const m = sd.songs[i];
@@ -194,7 +196,14 @@ async function downloadSong(
                 }
                 reason = await (async () => {
                     try {
-                        log("正在下载:", m.id, m.name);
+                        log(
+                            "正在下载:",
+                            m.id,
+                            m.name,
+                            "预计用时:",
+                            (timeUsed * (sd.songs.length - i + 1)) / 1000,
+                            "秒"
+                        );
                         musicPath = path.join(
                             appRootPath.get(),
                             `data/musics/`,
@@ -243,7 +252,10 @@ async function downloadSong(
                         });
                         fs.writeFileSync(musicPath, d.data, writeFileOptions);
                         lastMusicPath = musicPath;
-                        log(`下载成功 (${i}/${sd.songs.length}):`, musicPath);
+                        log(
+                            `下载成功 (${i + 1}/${sd.songs.length}):`,
+                            musicPath
+                        );
                         return true;
                     } catch (e) {
                         return "其他错误";
@@ -298,12 +310,13 @@ async function downloadSong(
                                 ? playlistFile.playlists[playlistName]
                                 : null,
                     });
+                    timeUsed = new Date() - D;
                     break;
                 }
             }
         }
 
-        log(tts("已全部下载"));
+        log(tts("下载完成"));
     } catch (e) {
         error(tts("下载失败: 无法获取歌曲信息或其他错误"), e);
     }
