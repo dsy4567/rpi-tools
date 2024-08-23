@@ -108,7 +108,7 @@ let disableHelp = false;
 let menuStates = [];
 let quickMenus = {
     喜欢: "l",
-    上一曲: "b",
+    下一曲: "n",
     "网易云音乐-更多选项": {
         选择播放列表: "p",
         更新播放列表: "U",
@@ -133,7 +133,7 @@ let quickMenus = {
             rpicam();
         },
     },
-    下一曲: "n",
+    上一曲: "b",
 };
 let menus = {
     主页: {
