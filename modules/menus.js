@@ -221,7 +221,7 @@ let menus = {
             process.stdout.write("\x08 \x08");
         },
         default: k => {
-            if (!/\s/g.test(k)) {
+            if (/[\S ]/g.test(k) && !/[\x00-\x1f\x7f]/g.test(k)) {
                 inpStr += k;
                 process.stdout.write(k);
             }
