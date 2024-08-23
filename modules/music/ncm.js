@@ -17,6 +17,7 @@ const {
     jsonfileOptions,
     ncmDownloadSongWithCookie,
     writeFileOptions,
+    ncmRetryTimeout,
 } = require("../config");
 
 async function initNcmApi() {
@@ -137,7 +138,11 @@ async function downloadSong(
     playlistName = ""
 ) {
     await initNcmApi();
-    let lastMusicPath = "";
+    let lastMusicPath = "",
+        timeUsed = 0,
+        timeWillUseMin = 0,
+        timeWillUseText = "",
+        failures = [];
     try {
         if (!(typeof ids === "object" ? ids[0] : ids)) return;
         switch (typeof ids) {
@@ -178,7 +183,6 @@ async function downloadSong(
                 songs: ids,
             });
 
-        let timeUsed = 5000;
         for (let i = 0; i < sd.songs.length; i++) {
             const D = new Date();
             if (!downloading) {
@@ -188,36 +192,41 @@ async function downloadSong(
             const m = sd.songs[i];
             let musicPath = "",
                 /** @type { Boolean | String } */ reason,
-                retryCount = -1;
+                retryCount = -1,
+                fileExists = false;
+            const artAndName = `${m.ar.map(ar => ar.name).join("、")}-${
+                m.name
+            }`;
             while (1) {
                 if (++retryCount >= 2) {
                     error(tts("重试次数过多，已放弃下载"));
+                    failures.push(`${m.id}-${artAndName}`);
                     break;
                 }
                 reason = await (async () => {
                     try {
-                        log(
-                            "正在下载:",
-                            m.id,
-                            m.name,
-                            "预计用时:",
-                            (timeUsed * (sd.songs.length - i + 1)) / 1000,
-                            "秒"
+                        timeWillUseMin = Math.ceil(
+                            (timeUsed * (sd.songs.length - i + 1)) / 1000 / 60
                         );
+                        timeWillUseText =
+                            "预计总用时: " +
+                            (timeUsed == 0
+                                ? "计算中"
+                                : (timeWillUseMin <= 1
+                                      ? "不到 1"
+                                      : "大约 " + timeWillUseMin) + " 分钟");
+                        log("正在下载:", artAndName, timeWillUseText);
                         musicPath = path.join(
                             appRootPath.get(),
                             `data/musics/`,
-                            sf(
-                                `${m.id}-${m.ar
-                                    .map(ar => ar.name)
-                                    .join("、")}-${m.name}.mp3`
-                            ).replaceAll(" ", "-")
+                            sf(`${m.id}-${artAndName}.mp3`).replaceAll(" ", "-")
                         );
                         if (
                             fs.existsSync(musicPath) &&
                             playlistFile.songs[m.id]?.errors.length == 0
                         ) {
-                            warn(
+                            fileExists = true;
+                            log(
                                 "文件已存在",
                                 m.name,
                                 (lastMusicPath = musicPath)
@@ -225,15 +234,15 @@ async function downloadSong(
                             return true;
                         }
                         if (m.fee == 1) {
-                            warn(tts("下载失败: vip 音乐"));
+                            warn("vip 音乐, 无法下载");
                             return false;
                         }
                         if (m.fee == 4) {
-                            warn(tts("下载失败: 付费专辑"));
+                            warn("付费专辑, 无法下载");
                             return false;
                         }
                         if (m.noCopyrightRcmd !== null) {
-                            warn(tts("下载失败: 无版权"));
+                            warn("无版权, 无法下载");
                             return false;
                         }
 
@@ -246,7 +255,15 @@ async function downloadSong(
                                     : undefined,
                             }),
                             u = resp.body.data[0].url;
-                        if (!u) return "其他错误";
+                        if (!u) {
+                            for (const p of sd.privileges) {
+                                if (p.id == m.id && p.st == -200) {
+                                    warn("无版权或其他原因, 无法下载");
+                                    return false;
+                                }
+                            }
+                            return "触发反爬、网络不稳定或其他错误";
+                        }
                         let d = await axios.get(u, {
                             responseType: "arraybuffer",
                         });
@@ -258,25 +275,29 @@ async function downloadSong(
                         );
                         return true;
                     } catch (e) {
-                        return "其他错误";
+                        error("下载失败", e);
+                        return "触发反爬、网络不稳定或其他错误";
                     }
                 })();
 
                 if (typeof reason === "string") {
-                    error(tts("下载失败, 5 分钟后重试: " + reason));
-                    await sleep(1000);
+                    error(
+                        tts(
+                            `下载失败, ${ncmRetryTimeout / 1000} 秒后重试: ` +
+                                reason
+                        )
+                    );
+                    await sleep(ncmRetryTimeout);
                 } else if (reason === false) {
+                    failures.push(`${m.id}-${artAndName}`);
                     break;
                 } else {
-                    (i + 1) % 5 == 0 &&
+                    (i + 1) % 10 == 0 &&
                         tts(
-                            `下载成功, 第 ${i + 1} 个, 共 ${sd.songs.length} 个`
+                            `下载成功, 第 ${i + 1} 个, 共 ${
+                                sd.songs.length
+                            } 个 ` + timeWillUseText
                         );
-                    log(
-                        `下载成功: ${m.name} 第 ${i + 1} 个, 共 ${
-                            sd.songs.length
-                        } 个`
-                    );
                     const /** @type {import(".").Song} */ s = {
                             name: m.name,
                             sid: m.id,
@@ -310,13 +331,14 @@ async function downloadSong(
                                 ? playlistFile.playlists[playlistName]
                                 : null,
                     });
-                    timeUsed = new Date() - D;
+                    if (!fileExists) timeUsed = new Date() - D;
                     break;
                 }
             }
         }
 
-        log(tts("下载完成"));
+        log(tts(`下载完成, 共 ${failures.length} 首无法下载`));
+        failures[0] && warn("无法下载:", failures.join(", "));
     } catch (e) {
         error(tts("下载失败: 无法获取歌曲信息或其他错误"), e);
     }
@@ -327,16 +349,23 @@ async function downloadSong(
 }
 async function downloadPlaylist(
     /** -1: 日推, -2: 喜欢, -3: 最喜欢 */ pid,
-    intelligence
+    intelligence = false
 ) {
     await initNcmApi();
     if (!pid) return;
+    if (intelligence && !loginStatus.logged) {
+        return warn(tts("需要登录"));
+    }
     let j;
-    if (pid == -1 && loginStatus.logged) {
+    if (pid == -1) {
+        if (!loginStatus.logged) {
+            return warn(tts("需要登录"));
+        }
         // 日推 需要登录
         j = ncmApi.recommend_songs({
             cookie: loginStatus.cookie,
         });
+        intelligence = false;
     } else if (pid == -2) return;
     else if (pid == -3) {
         downloadSong(playlistFile.playlists["最喜欢"].songs);
@@ -644,6 +673,16 @@ async function search() {
             if (
                 (await chooseItem("选择单曲或歌单", ["单曲", "歌单"])) == "单曲"
             ) {
+                songs.forEach(item => {
+                    items[
+                        `${item.name} 由 ${item.ar.map(
+                            ar => ar.name
+                        )} 演唱 id ${item.id}`
+                    ] = item.id;
+                });
+                const keys = Object.keys(items);
+                downloadSong(+items[await chooseItem("单曲搜索结果", keys)]);
+            } else {
                 playLists.forEach(item => {
                     items[`${item.name} id ${item.id}`] = item.id;
                 });
@@ -651,16 +690,6 @@ async function search() {
                 downloadPlaylist(
                     +items[await chooseItem("歌单搜索结果", keys)]
                 ).catch(e => error(tts("歌单下载失败"), e));
-            } else {
-                songs.forEach(item => {
-                    items[
-                        `${item.name} 由 ${m.ar.map(ar => ar.name)} 演唱 id ${
-                            item.id
-                        }`
-                    ] = item.id;
-                });
-                const keys = Object.keys(items);
-                downloadSong(+items[await chooseItem("单曲搜索结果", keys)]);
             }
         })
         .catch(e => {
