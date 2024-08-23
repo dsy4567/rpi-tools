@@ -5,7 +5,11 @@ const fs = require("graceful-fs");
 const mpg123 = require("mpg123");
 const path = require("path");
 
-const { enableMprisService, defaultPlayMode } = require("../config");
+const {
+    enableMprisService,
+    defaultPlayMode,
+    runMprisProxy,
+} = require("../config");
 const {
     input,
     chooseItem,
@@ -76,7 +80,7 @@ async function switchPlaylist(
     musicPathsIndex = tempMusicPathsIndex;
     controlledByUser = _controlledByUser;
     setPlayMode();
-    await updatePlayerStatus({}, false, musicPaths[musicPathsIndex]);
+    await updatePlayerStatus(null, false, musicPaths[musicPathsIndex]);
     currentNcmPlaylist = tempCurrentNcmPlaylist;
     musicPaths[0] && mpgPlayer.play(musicPaths[0]);
 }
@@ -114,10 +118,13 @@ async function getPlayerStatus() {
     return playerStatus;
 }
 async function updatePlayerStatus(
-    /** @type { Partial<typeof playerStatus> } */ ps,
+    /** @type { Boolean } */ playing,
     ended = false,
     /** @type { null | String} */ nextPath = null
 ) {
+    playing !== undefined &&
+        playing !== null &&
+        (playerStatus.playing = playing);
     if (nextPath) {
         const currentSongId = playerStatus.songId,
             currentPid = currentNcmPlaylist?.pid || 0;
@@ -133,7 +140,6 @@ async function updatePlayerStatus(
             // 结束播放，准备播放下一曲
             ncm.updateNcmHistory(currentSongId, currentPid, mpgPlayer.length);
         }
-        playerStatus = Object.assign(playerStatus, ps);
         playerStatus.totalSec = 0;
         playerStatus.path = nextPath;
         playerStatus.songId = parseSongId(nextPath);
@@ -143,7 +149,6 @@ async function updatePlayerStatus(
         playerStatus.currentSec = 0;
         log("正在播放:", playerStatus.songName);
     } else {
-        playerStatus = Object.assign(playerStatus, ps);
         playerStatus.totalSec = mpgPlayer.length;
         playerStatus.path = musicPaths[musicPathsIndex];
         playerStatus.songId = parseSongId(playerStatus.path);
@@ -161,7 +166,7 @@ async function previous() {
     controlledByUser = true;
     const p = musicPaths[musicPathsIndex];
     if (p) {
-        await updatePlayerStatus({ playing: false }, false, p);
+        await updatePlayerStatus(false, false, p);
         mpgPlayer.play(musicPaths[musicPathsIndex]);
     }
 }
@@ -173,7 +178,7 @@ async function next(_controlledByUser = true) {
     controlledByUser = _controlledByUser;
     const p = musicPaths[musicPathsIndex];
     if (p) {
-        await updatePlayerStatus({ playing: false }, !controlledByUser, p);
+        await updatePlayerStatus(false, !controlledByUser, p);
         mpgPlayer.play(musicPaths[musicPathsIndex]);
     }
 }
@@ -200,16 +205,18 @@ let controlledByUser = false;
 
 let mprisService;
 if (enableMprisService) {
-    const mp = cp.execFile("mpris-proxy", (e, stdout, stderr) => {
-        if (e) return error("无法启动 mpris 服务", e);
-    });
-    mp.stdout.on("data", d => {
-        log("[mpris-proxy]", d);
-    });
-    mp.stderr.on("data", d => error("[mpris-proxy]", d));
-    process.on("exit", () => {
-        mp.kill();
-    });
+    if (runMprisProxy) {
+        const mp = cp.execFile("mpris-proxy", (e, stdout, stderr) => {
+            if (e) return error("无法启动 mpris 服务", e);
+        });
+        mp.stdout.on("data", d => {
+            log("[mpris-proxy]", d);
+        });
+        mp.stderr.on("data", d => error("[mpris-proxy]", d));
+        process.on("exit", () => {
+            mp.kill();
+        });
+    }
 
     setTimeout(() => {
         const MprisPlayer = require("@jellybrick/mpris-service");
@@ -281,28 +288,28 @@ if (enableMprisService) {
 
 mpgPlayer.on("pause", e => {
     log("暂停");
-    updatePlayerStatus({ playing: false });
+    updatePlayerStatus(false);
 });
 mpgPlayer.on("end", async e => {
     log("结束");
     if (currentPlayMode === "repeat") {
         const p = musicPaths[musicPathsIndex];
         if (p) {
-            await updatePlayerStatus({ playing: false }, true, p);
+            await updatePlayerStatus(false, true, p);
             mpgPlayer.play(p);
         }
     } else next(false);
 });
 mpgPlayer.on("resume", e => {
     log("播放");
-    updatePlayerStatus({ playing: true });
+    updatePlayerStatus(true);
 });
 mpgPlayer.on("error", e => {
     error(tts("播放失败: " + playerStatus.songName), e);
     playerStatus.song.errors.push("" + e);
     if (!fs.existsSync(playerStatus.path)) playerStatus.song.downloaded = false;
     ncm.updatePlaylistFile();
-    updatePlayerStatus({ playing: false });
+    updatePlayerStatus(false);
 });
 
 addMenuItems("主页", {
@@ -327,7 +334,7 @@ addMenuItems("主页", {
                 break;
             case "下载歌单":
                 id = +(await input("id"));
-                intelligence = (await input("心动模式")) == "y";
+                intelligence = (await input("心动模式 (y/N)")) == "y";
                 try {
                     await ncm.downloadPlaylist(id, intelligence);
                 } catch (e) {
