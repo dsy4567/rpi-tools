@@ -1,28 +1,40 @@
 "use strict";
 
-const { logger } = require("./utils");
+const fs = require("graceful-fs");
+const path = require("path");
+const { logger, appRootPath } = require("./utils");
 const { log, error, warn } = logger("config");
 
 let userConfig = {};
 try {
-    userConfig = require("../data/config.js");
+    if (fs.existsSync(path.join(appRootPath.get(), "data/config.js"))) {
+        log("正在从 data/config.js 添加配置");
+        userConfig = require("../data/config.js") || {};
+    }
 } catch (e) {
-    log("可在 data/config.js 添加配置");
+    error("无法加载自定义配置", e);
 }
 
 const defaultConfig = {
-    /** @type { import("./music/index").PlayMode } */
+    /** 默认播放模式 @type { import("./music/index").PlayMode } */
     defaultPlayMode: "shuffle",
+    /** 运行 mpris-proxy */
+    runMprisProxy: true,
+    /** 启用 mpris 服务（主要用于蓝牙耳机按键） */
     enableMprisService: true,
+    /** 忽略未捕获错误 */
     handleUncaughtException: true,
-    /** @type {import("jsonfile").JFWriteOptions} */
+    /** jsonfile 包写入 JSON 文件的选项 @type {import("jsonfile").JFWriteOptions} */
     jsonfileOptions: {
         spaces: 2,
     },
+    /** 下载音乐时不带 cookie */
     ncmDownloadSongWithCookie: true,
+    /** 音乐下载失败时（可能触发反爬）的重试间隔，单位毫秒 */
     ncmRetryTimeout: 5 * 60 * 1000,
+    /** espeak 语言 */
     TTSEspeakLanguage: "zh",
-    /** @type {import("fs").WriteFileOptions} */
+    /** fs 包写入文件的选项 @type {import("fs").WriteFileOptions} */
     writeFileOptions: {
         flush: true,
     },
