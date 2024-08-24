@@ -21,7 +21,7 @@
     "dependencies": {
         "@jellybrick/mpris-service": "^2.1.4",
         "NeteaseCloudMusicApi": "^4.22.0",
-        "axios": "^1.7.4",
+        "axios": "^1.7.5",
         "cli-color": "^2.0.4",
         "cookie": "^0.6.0",
         "graceful-fs": "^4.2.11",
