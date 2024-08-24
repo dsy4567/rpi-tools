@@ -1,6 +1,7 @@
 "use strict";
 
-module.exports = {
+/** @type { import("../modules/config") } */
+const userConfig = {
     // /** 默认播放模式 @type { import("./music/index").PlayMode } */
     // defaultPlayMode: "shuffle",
     // /** 运行 mpris-proxy */
@@ -24,3 +25,5 @@ module.exports = {
     //     flush: true,
     // },
 };
+
+module.exports = userConfig;

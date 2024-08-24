@@ -262,7 +262,7 @@ if (process.stdin.isTTY) {
         else {
             // 防止无意间进行粘贴，导致意外执行操作
             clearTimeout(inputTimeout);
-            setTimeout(() => {
+            inputTimeout = setTimeout(() => {
                 activeMenu(key.sequence);
             }, 10);
         }

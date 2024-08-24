@@ -1,6 +1,6 @@
 "use strict";
 
-let /** @type { import("axios").default } */ axios;
+let /** @type { import("axios") } */ axios;
 const { EventEmitter } = require("events");
 const fs = require("graceful-fs");
 const jsonfile = require("jsonfile");
@@ -132,6 +132,87 @@ function cancelDownloading() {
     downloading = false;
     log(tts("已取消全部下载任务"));
 }
+async function downloadMV(
+    /** @type { Number | String } */ songId,
+    /** @type { Number | String } */ mvId,
+    /** @type { String } */ musicPath,
+    /** @type { (musicPath: string) => void } */ callback
+) {
+    try {
+        if (isNaN((songId = +songId))) return true;
+        if (isNaN((mvId = +mvId))) return true;
+        log("尝试下载 MV 并转换", path.parse(musicPath).name);
+
+        let r = (
+            await ncmApi.mv_detail({ mvid: mvId, cookie: loginStatus.cookie })
+        ).body;
+        let br = r.data.brs?.[0]?.br;
+        if (!br) return true;
+
+        r = (await ncmApi.mv_url({ id: mvId, r: br })).body;
+        const u = r.data?.url;
+        if (!u) return true;
+
+        const r2 = await axios.get(u, {
+            headers: {
+                "sec-fetch-site": "cross-site",
+                "sec-fetch-dest": "document",
+                "sec-fetch-mode": "navigate",
+                referer: "https://music.163.com/",
+                "user-agent":
+                    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
+            },
+
+            responseType: "arraybuffer",
+        });
+        fs.mkdirSync(path.join(appRootPath.get(), "data/temp/"), {
+            recursive: true,
+        });
+
+        const p = path.join(
+            appRootPath.get(),
+            "data/temp/",
+            `tempMV-${songId}.mp4`
+        );
+        fs.writeFileSync(p, r2.data, writeFileOptions);
+
+        await (async () => {
+            return new Promise((resolve, reject) => {
+                const cp = require("child_process").execFile(
+                    "ffmpeg",
+                    ["-i", p, "-y", "-vn", "-c:a", "mp3", musicPath],
+                    e => {
+                        if (e) reject(e);
+                        else {
+                            resolve();
+                            clearTimeout(timeout);
+                        }
+                    }
+                );
+                cp.stdout.on("data", d => {
+                    log("[ffmpeg stdout]", d);
+                });
+                cp.stderr.on("data", d => error("[ffmpeg stderr]", d));
+                const timeout = setTimeout(() => {
+                    reject(new Error("ffmpeg 未在规定时间内退出"));
+                    cp.kill(9);
+                }, 180000);
+            });
+        })();
+        try {
+            fs.rmSync(p, { force: true });
+        } catch (e) {}
+
+        callback(musicPath);
+        return false;
+    } catch (e) {
+        error("无法下载 MV", e);
+        try {
+            fs.rmSync(p, { force: true });
+        } catch (e) {}
+        return true;
+    }
+}
 async function downloadSong(
     /** @type { String | Number | Number[] | String[] } */ ids,
     playListId = 0,
@@ -234,15 +315,15 @@ async function downloadSong(
                             return true;
                         }
                         if (m.fee == 1) {
-                            warn("vip 音乐, 无法下载");
+                            warn("vip 音乐");
                             return false;
                         }
                         if (m.fee == 4) {
-                            warn("付费专辑, 无法下载");
+                            warn("付费专辑");
                             return false;
                         }
                         if (m.noCopyrightRcmd !== null) {
-                            warn("无版权, 无法下载");
+                            warn("无版权");
                             return false;
                         }
 
@@ -257,7 +338,7 @@ async function downloadSong(
                             u = resp.body.data[0].url;
                         if (!u) {
                             for (const p of sd.privileges) {
-                                if (p.id == m.id && p.st == -200) {
+                                if (p.id == m.id && p.st < 0) {
                                     warn("无版权或其他原因, 无法下载");
                                     return false;
                                 }
@@ -288,7 +369,16 @@ async function downloadSong(
                         )
                     );
                     await sleep(ncmRetryTimeout);
-                } else if (reason === false) {
+                } else if (
+                    reason === false &&
+                    m.mv &&
+                    (await downloadMV(
+                        m.id,
+                        m.mv,
+                        musicPath,
+                        mp => (lastMusicPath = mp)
+                    ))
+                ) {
                     failures.push(`${m.id}-${artAndName}`);
                     break;
                 } else {
@@ -492,7 +582,7 @@ function fixSongs() {
             }
 
             input("输入 Y 继续操作").then(v => {
-                if (v !== "Y") return;
+                if (v !== "Y") return tts("取消");
 
                 if (downloadIds && downloadIds[0]) {
                     downloadSong(downloadIds);

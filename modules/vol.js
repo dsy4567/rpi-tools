@@ -3,10 +3,11 @@
 const vc = require("volume_supervisor").volumeControl;
 
 const menus = require("./menus");
+const tts = require("./tts").tts;
 
 let vol = 30;
 
-function setVol(add = 0) {
+function addVol(add = 0) {
     vol += add;
     if (vol > 100) vol = 100;
     if (vol < 0) vol = 0;
@@ -20,25 +21,29 @@ menus.addMenuItems("主页", {
 });
 menus.addMenuItems("音量调节", {
     b: k => {
-        setVol(-3);
+        addVol(-3);
+        tts("音量减");
     },
     g: k => {
-        setVol(-5);
+        addVol(-5);
+        tts("音量减减");
     },
     n: k => {
-        setVol(3);
+        addVol(3);
+        tts("音量加");
     },
     h: k => {
-        setVol(5);
+        addVol(5);
+        tts("音量加加");
     },
 });
 
 setInterval(async () => {
     try {
-        if ((await vc.getGlobalVolume()) >= 100) setVol();
+        if ((await vc.getGlobalVolume()) >= 100) addVol();
     } catch (e) {}
 }, 5000);
 
 module.exports = {
-    setVol,
+    addVol,
 };

@@ -7,8 +7,7 @@ const path = require("path");
 const sf = require("sanitize-filename");
 
 const D = new Date();
-let numberOfLogWriteFailures = 0,
-    unwrittenLogs = "",
+let unwrittenLogs = "",
     logInterval;
 let appRootPath = path.join(__dirname, "../");
 let dateForFileName;
@@ -23,11 +22,12 @@ function log(
         warn: "yellowBright",
         error: "redBright",
     };
-    console[type](
+    console[type]?.(
         clc[colors[type] || "greenBright"](`${type[0].toUpperCase()}:`),
         clc.cyanBright.cyan(`[${moduleName}]`),
         ...args
     );
+
     unwrittenLogs +=
         [
             `${type[0].toUpperCase()}:`,
@@ -45,6 +45,12 @@ function log(
     const f = () => {
         if (unwrittenLogs) {
             try {
+                fs.mkdirSync(
+                    path.join(module.exports.appRootPath.get(), "data/logs/"),
+                    {
+                        recursive: true,
+                    }
+                );
                 fs.appendFileSync(
                     path.join(
                         module.exports.appRootPath.get(),
@@ -113,7 +119,3 @@ module.exports = {
         return arr.sort(() => Math.random() - 0.5);
     },
 };
-
-fs.mkdirSync(path.join(module.exports.appRootPath.get(), "data/logs/"), {
-    recursive: true,
-});
