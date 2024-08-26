@@ -22,28 +22,30 @@
 
 ## 🛠 安装
 
-下载源码，安装依赖
+-   下载源码，安装依赖
 
-```bash
-sudo apt install nodejs npm moc pulseaudio pulseaudio-module-bluetooth bluez espeak cpufrequtils screen ffmpeg
-git clone https://github.com/dsy4567/rpi-tools
-cd rpi-tools
-npm i
-```
+    ```bash
+    sudo apt install nodejs npm moc pulseaudio pulseaudio-module-bluetooth bluez espeak cpufrequtils screen ffmpeg
+    git clone https://github.com/dsy4567/rpi-tools
+    cd rpi-tools
+    npm i
+    ```
 
-登录网易云音乐（可选）
+-   配置 sudo 免密（用于关机重启、设置进程优先级、使用 `rpicam` 拍照）
 
-在 `rpi-tools/data/` 文件夹下创建 `ncmCookie.txt`，内容参考：
+-   登录网易云音乐（可选）
 
-```text
-MUSIC_U=******;
-```
+    在 `rpi-tools/data/` 文件夹下创建 `ncmCookie.txt`，内容参考：
 
-运行
+    ```text
+    MUSIC_U=******;
+    ```
 
-```bash
-node ./main.js
-```
+-   运行
+
+    ```bash
+    bash ./run.sh
+    ```
 
 ## 🕺 操作方法
 

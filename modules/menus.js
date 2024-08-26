@@ -4,7 +4,6 @@ const cp = require("child_process");
 const readline = require("readline");
 const { mkdirSync } = require("graceful-fs");
 const path = require("path");
-const { homedir } = require("os");
 
 const { tts } = require("./tts");
 const { dateForFileName, appRootPath, logger } = require("./utils");
@@ -15,6 +14,7 @@ function pushMenuState(/** @type {String} */ s, _disableHelp = false) {
     log("menuState:", s);
     tts(s);
     menuStates.push(s);
+    resetPopMenuStateTimeout();
 }
 function popMenuState(_disableHelp = false) {
     disableHelp = _disableHelp;
@@ -22,6 +22,15 @@ function popMenuState(_disableHelp = false) {
     let s = getMenuState();
     log("menuState:", s);
     tts(s);
+    resetPopMenuStateTimeout();
+}
+function resetPopMenuStateTimeout() {
+    popMenuStateTimeout =
+        popMenuStateTimeout ||
+        setTimeout(() => {
+            if (getMenuState() !== "主页") popMenuState();
+        }, 15000);
+    popMenuStateTimeout.refresh();
 }
 function getMenuState() {
     return menuStates.at(-1) || "主页";
@@ -108,24 +117,30 @@ let disableHelp = false;
 let menuStates = [];
 let quickMenus = {
     喜欢: "l",
-    下一曲: "n",
+    上一曲: "b",
     "网易云音乐-更多选项": {
         选择播放列表: "p",
+        切换播放模式: {
+            顺序播放: "N",
+            随机播放: "S",
+            单曲循环: "R",
+        },
         更新播放列表: "U",
-        歌曲信息: "i",
         更新登录信息: "_ncm.loginAgain",
+        备份播放列表: "_ncm.removePlaylist",
+        删除播放列表: "_ncm.backupPlaylistFile",
         取消全部下载任务: "_ncm.cancelDownloading",
-        删除播放列表: "_ncm.removePlaylist",
+        歌曲信息: "i",
     },
     电源: {
         关机: () => {
             cp.execSync("sudo shutdown 0");
         },
-        定时关机: () => {
-            cp.execSync("sudo shutdown 40");
-        },
         重启: () => {
             cp.execSync("sudo reboot");
+        },
+        定时关机: () => {
+            cp.execSync("sudo shutdown 40");
         },
     },
     小工具: {
@@ -133,7 +148,7 @@ let quickMenus = {
             rpicam();
         },
     },
-    上一曲: "b",
+    下一曲: "n",
 };
 let menus = {
     主页: {
@@ -189,17 +204,11 @@ let menus = {
                         break;
                 }
                 m &&
-                    cp.exec("sudo cpufreq-set -g " + m, (e, stdout, stderr) => {
-                        e &&
-                            error(
-                                "无法更改电源选项",
-                                e,
-                                "\nstdout:",
-                                stdout,
-                                "\nstderr:",
-                                stderr
-                            );
-                    });
+                    execFile("sudo", ["cpufreq-set", "-g", m])
+                        .then(() => {})
+                        .catch(e => {
+                            error("无法更改电源选项", e);
+                        });
             });
         },
     },
@@ -252,7 +261,8 @@ let menus = {
     },
 };
 
-let /** @type {NodeJS.Timeout} */ inputTimeout;
+let /** @type {NodeJS.Timeout} */ inputTimeout,
+    /** @type {NodeJS.Timeout} */ popMenuStateTimeout;
 
 if (process.stdin.isTTY) {
     readline.emitKeypressEvents(process.stdin);

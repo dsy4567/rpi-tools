@@ -9,7 +9,13 @@ const path = require("path");
 const sf = require("sanitize-filename");
 
 const { chooseItem, input, addMenuItems } = require("../menus");
-const { sleep, logger, appRootPath } = require("../utils");
+const {
+    sleep,
+    logger,
+    appRootPath,
+    execFile,
+    dateForFileName,
+} = require("../utils");
 const { log, error, warn } = logger("网易云音乐");
 const tts = require("../tts").tts;
 
@@ -18,6 +24,7 @@ const {
     ncmDownloadSongWithCookie,
     writeFileOptions,
     ncmRetryTimeout,
+    doNotUpdateNcmHistory,
 } = require("../config");
 
 async function initNcmApi() {
@@ -93,6 +100,15 @@ async function login(clear = false) {
         return loginStatus;
     }
 }
+async function backupPlaylistFile() {
+    await fs.promises.copyFile(
+        playlistPath,
+        path.join(
+            playlistPath,
+            `../ncmPlaylist-backup-${dateForFileName()}.json`
+        )
+    );
+}
 async function updatePlaylistFile() {
     try {
         await jsonfile.writeFile(playlistPath, playlistFile, jsonfileOptions);
@@ -105,11 +121,18 @@ function getPlaylistFile() {
     return playlistFile;
 }
 function updateNcmHistory(id, sourceid, currentSec) {
+    if (!id) return;
     clearTimeout(historyTimeout);
     historyTimeout = setTimeout(() => {
         initNcmApi().then(() => {
-            log("已更新听歌历史", id, sourceid, currentSec);
-            if (loginStatus.logged) {
+            log(
+                `${doNotUpdateNcmHistory ? "未" : "已"}更新听歌历史`,
+                id,
+                sourceid,
+                currentSec
+            );
+
+            if (loginStatus.logged && !doNotUpdateNcmHistory) {
                 ncmStatusCheck(
                     ncmApi.scrobble({
                         id,
@@ -176,29 +199,11 @@ async function downloadMV(
         );
         fs.writeFileSync(p, r2.data, writeFileOptions);
 
-        await (async () => {
-            return new Promise((resolve, reject) => {
-                const cp = require("child_process").execFile(
-                    "ffmpeg",
-                    ["-i", p, "-y", "-vn", "-c:a", "mp3", musicPath],
-                    e => {
-                        if (e) reject(e);
-                        else {
-                            resolve();
-                            clearTimeout(timeout);
-                        }
-                    }
-                );
-                cp.stdout.on("data", d => {
-                    log("[ffmpeg stdout]", d);
-                });
-                cp.stderr.on("data", d => error("[ffmpeg stderr]", d));
-                const timeout = setTimeout(() => {
-                    reject(new Error("ffmpeg 未在规定时间内退出"));
-                    cp.kill(9);
-                }, 180000);
-            });
-        })();
+        await execFile(
+            "ffmpeg",
+            ["-i", p, "-y", "-vn", "-c:a", "mp3", musicPath],
+            180000
+        );
         try {
             fs.rmSync(p, { force: true });
         } catch (e) {}
@@ -414,7 +419,7 @@ async function downloadSong(
                             new Set(playlistFile.playlists[playlistName].songs)
                         );
                     }
-                    playlistEmitter.emit("update", {
+                    playlistEmitter.emit("addSong", {
                         song: s,
                         playlist:
                             playListId && playlistName
@@ -671,7 +676,7 @@ async function like(/** @type {Number} */ id) {
                                     ncmApi.playlist_tracks({
                                         pid: loginStatus.likePlaylistId,
                                         tracks: add,
-                                        op: "add",
+                                        op: "addSong",
                                         cookie: loginStatus.cookie,
                                         r: "" + Math.random(),
                                     })
@@ -842,15 +847,19 @@ addMenuItems("主页", {
     "_ncm.removePlaylist": k => {
         removePlaylist();
     },
+    "_ncm.backupPlaylistFile": k => {
+        backupPlaylistFile();
+    },
 });
 
-if (fs.existsSync(playlistPath))
-    playlistFile = jsonfile.readFileSync(playlistPath);
-else
-    jsonfile.writeFile(playlistPath, playlistFile, jsonfileOptions).catch(e => {
-        error(e);
-        tts("无法更新播放列表");
-    });
+if (fs.existsSync(playlistPath)) {
+    try {
+        playlistFile = jsonfile.readFileSync(playlistPath);
+    } catch (e) {
+        warn("ncmPlaylist.json 已损坏, 正在备份并重新创建");
+        backupPlaylistFile().then(() => updatePlaylistFile());
+    }
+} else updatePlaylistFile();
 fs.mkdirSync(path.join(appRootPath.get(), "data/musics/"), { recursive: true });
 
 setTimeout(initNcmApi, 30000);
@@ -863,6 +872,7 @@ module.exports = {
     downloadSong,
     ncmStatusCheck,
     updateNcmHistory,
+    backupPlaylistFile,
     updatePlaylistFile,
     getPlaylistFile,
     initNcmApi,

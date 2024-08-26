@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "command": "node ./main.js",
+            "command": "bash ./run.sh",
             "name": "Run main.js",
             "request": "launch",
             "type": "node-terminal"

@@ -66,7 +66,13 @@ function log(
     };
     dateForFileName || (dateForFileName = module.exports.dateForFileName());
     logInterval ||
-        ((logInterval = setInterval(f, 10000)) && process.on("exit", f));
+        ((logInterval = setInterval(f, 10000)) &&
+            process.on("exit", code => {
+                unwrittenLogs += `\nI: [${
+                    new Date() - D
+                }] 已退出, 代码: ${code}\n`;
+                f();
+            }));
 }
 
 module.exports = {
@@ -75,6 +81,7 @@ module.exports = {
             return appRootPath;
         },
         set(p) {
+            fs.mkdirSync(path.join(p, "data/"), { recursive: true });
             return (appRootPath = p);
         },
     },
@@ -117,5 +124,27 @@ module.exports = {
     },
     shuffle(arr) {
         return arr.sort(() => Math.random() - 0.5);
+    },
+    execFile(file, args, exitTimeout = 0) {
+        return new Promise((resolve, reject) => {
+            const chp = cp.execFile(file, args, e => {
+                if (e) reject(e);
+                else {
+                    resolve();
+                    clearTimeout(timeout);
+                }
+            });
+            chp.stdout.on("data", d => {
+                log("info", `${file} stdout`, d);
+            });
+            chp.stderr.on("data", d => log("error", `${file} stderr`, d));
+            let timeout;
+            timeout =
+                exitTimeout &&
+                setTimeout(() => {
+                    reject(new Error(`${file} 未在规定时间内退出`));
+                    chp.kill(9);
+                }, exitTimeout);
+        });
     },
 };

@@ -34,14 +34,14 @@ type PlayMode = "autonext" | "shuffle" | "repeat";
 
 interface PlaylistEmitterT extends EventEmitter {
     emit(
-        event: "update",
+        event: "addSong",
         data: {
             song: Song;
             playlist: Playlist | null;
         }
     ): this;
     on(
-        event: "update",
+        event: "addSong",
         listener: (data: { song: Song; playlist: Playlist | null }) => void
     ): this;
 }

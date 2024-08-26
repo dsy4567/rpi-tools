@@ -19,7 +19,7 @@ const {
 } = require("../menus");
 const ncm = require("./ncm");
 const tts = require("../tts").tts;
-const { logger, shuffle, appRootPath } = require("../utils");
+const { logger, shuffle, appRootPath, execFile } = require("../utils");
 const { log, error, warn } = logger("播放器");
 
 async function switchPlaylist(
@@ -82,7 +82,16 @@ async function switchPlaylist(
     setPlayMode();
     await updatePlayerStatus(null, false, musicPaths[musicPathsIndex]);
     currentNcmPlaylist = tempCurrentNcmPlaylist;
+    currentPlaylist = pl;
     musicPaths[0] && mpgPlayer.play(musicPaths[0]);
+
+    fs.writeFile(
+        path.join(appRootPath.get(), "data/fallbackPlaylist.pls"),
+        musicPaths.map(p => path.basename(p)).join("\n"),
+        e => {
+            e && error("无法写入备用播放列表", e);
+        }
+    );
 }
 function setPlayMode(
     /** @type { import(".").PlayMode } */ mode = currentPlayMode
@@ -128,17 +137,16 @@ async function updatePlayerStatus(
     if (nextPath) {
         const currentSongId = playerStatus.songId,
             currentPid = currentNcmPlaylist?.pid || 0;
-        if (controlledByUser) {
-            // 用户手动切上/下一曲，准备播放下一曲
+        if (ended) {
+            // 结束播放，准备播放下一曲
+            ncm.updateNcmHistory(currentSongId, currentPid, mpgPlayer.length);
+        } else {
             controlledByUser = false;
             ncm.updateNcmHistory(
                 currentSongId,
                 currentPid,
                 await getCurrentProgressSec()
             );
-        } else if (ended) {
-            // 结束播放，准备播放下一曲
-            ncm.updateNcmHistory(currentSongId, currentPid, mpgPlayer.length);
         }
         playerStatus.totalSec = 0;
         playerStatus.path = nextPath;
@@ -171,11 +179,12 @@ async function previous() {
     }
 }
 async function next(_controlledByUser = true) {
-    if (++musicPathsIndex > musicPaths.length - 1) {
-        musicPathsIndex = 0;
-        if (currentPlayMode === "shuffle") setPlayMode("shuffle");
-    }
     controlledByUser = _controlledByUser;
+    if (++musicPathsIndex > musicPaths.length - 1) {
+        return switchPlaylist(currentPlaylist, false);
+        // musicPathsIndex = 0;
+        // if (currentPlayMode === "shuffle") setPlayMode("shuffle");
+    }
     const p = musicPaths[musicPathsIndex];
     if (p) {
         await updatePlayerStatus(false, !controlledByUser, p);
@@ -188,7 +197,8 @@ const musicDir = path.join(appRootPath.get(), "data/musics/");
 const mpgPlayer = new mpg123.MpgPlayer();
 let originalMusicPaths = [],
     musicPaths = [],
-    /** @type { import(".").Playlist | null } */ currentNcmPlaylist = null;
+    /** @type { import(".").Playlist | null } */ currentNcmPlaylist = null,
+    /** @type { String | Number | String[] } */ currentPlaylist;
 let /** @type { "autonext" | "shuffle" | "repeat" } */ currentPlayMode =
         "autonext",
     playerStatus = {
@@ -204,18 +214,43 @@ let /** @type { "autonext" | "shuffle" | "repeat" } */ currentPlayMode =
 let controlledByUser = false;
 
 let mprisService;
+
+mpgPlayer.on("pause", e => {
+    log("暂停");
+    updatePlayerStatus(false);
+});
+mpgPlayer.on("end", async e => {
+    log("结束");
+    if (currentPlayMode === "repeat") {
+        const p = musicPaths[musicPathsIndex];
+        if (p) {
+            await updatePlayerStatus(false, true, p);
+            mpgPlayer.play(p);
+        }
+    } else next(false);
+});
+mpgPlayer.on("resume", e => {
+    log("播放");
+    updatePlayerStatus(true);
+});
+mpgPlayer.on("error", e => {
+    if (("" + e).includes("No stream opened")) return;
+    error(tts("播放失败: " + playerStatus.songName), e);
+    if (currentPlayMode === "repeat") currentPlayMode = "autonext";
+    playerStatus.song?.errors.push("" + e);
+    if (!fs.existsSync(playerStatus.path) && playerStatus.song)
+        playerStatus.song.downloaded = false;
+    ncm.updatePlaylistFile();
+    updatePlayerStatus(false);
+});
+
 if (enableMprisService) {
     if (runMprisProxy) {
-        const mp = cp.execFile("mpris-proxy", (e, stdout, stderr) => {
-            if (e) return error("无法启动 mpris 服务", e);
-        });
-        mp.stdout.on("data", d => {
-            log("[mpris-proxy]", d);
-        });
-        mp.stderr.on("data", d => error("[mpris-proxy]", d));
-        process.on("exit", () => {
-            mp.kill();
-        });
+        execFile("mpris-proxy", [])
+            .then(() => {})
+            .catch(e => {
+                error(e);
+            });
     }
 
     setTimeout(() => {
@@ -286,38 +321,18 @@ if (enableMprisService) {
     }, 5000);
 }
 
-mpgPlayer.on("pause", e => {
-    log("暂停");
-    updatePlayerStatus(false);
-});
-mpgPlayer.on("end", async e => {
-    log("结束");
-    if (currentPlayMode === "repeat") {
-        const p = musicPaths[musicPathsIndex];
-        if (p) {
-            await updatePlayerStatus(false, true, p);
-            mpgPlayer.play(p);
-        }
-    } else next(false);
-});
-mpgPlayer.on("resume", e => {
-    log("播放");
-    updatePlayerStatus(true);
-});
-mpgPlayer.on("error", e => {
-    error(tts("播放失败: " + playerStatus.songName), e);
-    playerStatus.song.errors.push("" + e);
-    if (!fs.existsSync(playerStatus.path)) playerStatus.song.downloaded = false;
-    ncm.updatePlaylistFile();
-    updatePlayerStatus(false);
-});
-
 addMenuItems("主页", {
     l: async k => {
         ncm.like(playerStatus.songId);
     },
     D: async k => {
-        const opinions = ["下载单曲", "下载歌单", "修复", "取消全部下载任务"];
+        const opinions = [
+            "下载单曲",
+            "下载歌单",
+            "备份播放列表",
+            "修复",
+            "取消全部下载任务",
+        ];
         const choice = await chooseItem("下载", opinions);
         let id, intelligence;
 
@@ -341,6 +356,11 @@ addMenuItems("主页", {
                     error(e);
                     tts("下载失败");
                 }
+                break;
+            case "备份播放列表":
+                ncm.backupPlaylistFile()
+                    .then(() => log(tts("完成")))
+                    .catch(e => err(tts("无法备份播放列表"), e));
                 break;
             case "修复":
                 ncm.fixSongs();
@@ -447,8 +467,14 @@ addMenuItems("主页", {
     },
 });
 
-ncm.playlistEmitter.on("update", data => {
-    if (data.playlist && currentNcmPlaylist?.pid === data.playlist?.pid) {
+ncm.playlistEmitter.on("addSong", data => {
+    if (+currentPlaylist === 0 || currentPlaylist === "全部") {
+        musicPaths.push(data.song.path);
+        originalMusicPaths.push(data.song.path);
+    } else if (
+        data.playlist &&
+        currentNcmPlaylist?.pid === data.playlist?.pid
+    ) {
         musicPaths.push(data.song.path);
         originalMusicPaths.push(data.song.path);
         currentNcmPlaylist = data.playlist;

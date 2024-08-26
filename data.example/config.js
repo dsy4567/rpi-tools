@@ -4,6 +4,8 @@
 const userConfig = {
     // /** 默认播放模式 @type { import("./music/index").PlayMode } */
     // defaultPlayMode: "shuffle",
+    // /** 不上传听歌历史 */
+    // doNotUpdateNcmHistory:false,
     // /** 运行 mpris-proxy */
     // runMprisProxy: true,
     // /** 启用 mpris 服务（主要用于蓝牙耳机按键） */
@@ -18,6 +20,8 @@ const userConfig = {
     // ncmDownloadSongWithCookie: true,
     // /** 音乐下载失败时（可能触发反爬）的重试间隔，单位毫秒 */
     // ncmRetryTimeout: 5 * 60 * 1000,
+    // /** 进程优先级 */
+    // priority: -7,
     // /** espeak 语言 */
     // TTSEspeakLanguage: "zh",
     // /** fs 包写入文件的选项 @type {import("fs").WriteFileOptions} */
