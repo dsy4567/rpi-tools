@@ -5,7 +5,7 @@ timeout=5
 rm ./data/musics/fallbackPlaylist.pls
 for i in {1..3}
 do
-    node ./main.js $@
+    node ./main.js from-run-sh $@
     exitCode=$?
     if [ $exitCode -eq 0 ];
     then

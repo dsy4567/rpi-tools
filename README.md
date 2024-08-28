@@ -27,7 +27,14 @@
 -   下载源码，安装依赖
 
     ```bash
+    # pulseaudio pulseaudio-module-bluetooth 可根据需要替换为其他同类软件包，如 pipewire
     sudo apt install nodejs npm moc pulseaudio pulseaudio-module-bluetooth bluez espeak cpufrequtils screen ffmpeg
+
+    # 如果安装的 nodejs 不是最新版（v22.6.0 及以上），则需要使用以下命令重新安装最新版
+    npm i -g n
+    n latest
+    # 这里建议重启 shell
+
     git clone https://github.com/dsy4567/rpi-tools
     cd rpi-tools
     npm i

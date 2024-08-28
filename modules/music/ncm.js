@@ -155,6 +155,7 @@ function cancelDownloading() {
     downloading = false;
     log(tts("已取消全部下载任务"));
 }
+/** 下载有 MV 的付费音乐, 成功返回 false, 失败返回 true */
 async function downloadMV(
     /** @type { Number | String } */ songId,
     /** @type { Number | String } */ mvId,
@@ -162,8 +163,8 @@ async function downloadMV(
     /** @type { (musicPath: string) => void } */ callback
 ) {
     try {
-        if (isNaN((songId = +songId))) return true;
-        if (isNaN((mvId = +mvId))) return true;
+        if (!songId || isNaN((songId = +songId))) return true;
+        if (!mvId || isNaN((mvId = +mvId))) return true;
         log("尝试下载 MV 并转换", path.parse(musicPath).name);
 
         let r = (
@@ -387,7 +388,6 @@ async function downloadSong(
                     await sleep(ncmRetryTimeout);
                 } else if (
                     reason === false &&
-                    m.mv &&
                     (await downloadMV(
                         m.id,
                         m.mv,

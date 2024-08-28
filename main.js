@@ -29,4 +29,11 @@ setTimeout(() => {
     exitOnError = false;
 }, 20000);
 
+setTimeout(() => {
+    if (!process.argv.includes("from-run-sh"))
+        warn(
+            "请从 run.sh 运行 rpi-tools, 而不是直接运行 main.js 或通过其他方式运行"
+        );
+}, 5000);
+
 init();
