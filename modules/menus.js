@@ -135,14 +135,14 @@ let quickMenus = {
         歌曲信息: "i",
     },
     电源: {
-        关机: () => {
-            cp.execSync("sudo shutdown 0");
+        定时关机: () => {
+            cp.execSync("sudo shutdown 40");
         },
         重启: () => {
             cp.execSync("sudo reboot");
         },
-        定时关机: () => {
-            cp.execSync("sudo shutdown 40");
+        关机: () => {
+            cp.execSync("sudo shutdown 0");
         },
     },
     小工具: {

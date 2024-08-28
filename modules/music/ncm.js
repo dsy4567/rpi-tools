@@ -201,11 +201,7 @@ async function downloadMV(
         );
         fs.writeFileSync(p, r2.data, writeFileOptions);
 
-        await execFile(
-            "ffmpeg",
-            ["-i", p, "-y", "-vn", "-c:a", "mp3", musicPath],
-            180000
-        );
+        await execFile("ffmpeg", ["-i", p, "-y", "-vn", musicPath], 180000);
         try {
             fs.rmSync(p, { force: true });
         } catch (e) {}
