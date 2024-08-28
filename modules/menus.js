@@ -55,6 +55,8 @@ function activeMenu(/** @type {String} */ key) {
     if (key == "\x1B") return popMenuState(); // Esc
     if (key == "\x03") return process.exit(0); // Ctrl^C
 
+    resetPopMenuStateTimeout();
+
     const menu = menus[getMenuState()],
         f = menu?.[key];
     if (key == "h" && !disableHelp) {
@@ -127,8 +129,8 @@ let quickMenus = {
         },
         更新播放列表: "U",
         更新登录信息: "_ncm.loginAgain",
-        备份播放列表: "_ncm.removePlaylist",
-        删除播放列表: "_ncm.backupPlaylistFile",
+        备份播放列表: "_ncm.backupPlaylistFile",
+        删除播放列表: "_ncm.removePlaylist",
         取消全部下载任务: "_ncm.cancelDownloading",
         歌曲信息: "i",
     },
