@@ -25,6 +25,7 @@ const {
     writeFileOptions,
     ncmRetryTimeout,
     doNotUpdateNcmHistory,
+    playlistLimit,
 } = require("../config");
 
 async function initNcmApi() {
@@ -276,7 +277,7 @@ async function downloadSong(
         for (let i = 0; i < sd.songs.length; i++) {
             const D = new Date();
             if (!downloading) {
-                break;
+                addOnly = true;
             }
 
             const m = sd.songs[i];
@@ -289,7 +290,7 @@ async function downloadSong(
             }`;
             while (1) {
                 if (!downloading) {
-                    break;
+                    addOnly = true;
                 }
                 if (++retryCount >= 2) {
                     error(tts("重试次数过多，已放弃下载"));
@@ -490,7 +491,7 @@ async function downloadPlaylist(
         j = ncmApi.playlist_track_all({
             id: pid,
             cookie: loginStatus.cookie,
-            limit: 300,
+            limit: playlistLimit,
         });
     else if (pid > 0 && intelligence && loginStatus.logged)
         // 歌单 心动模式 需要登录

@@ -13,10 +13,10 @@
     },
     "license": "MIT",
     "scripts": {
-        "start": "node ./main.js"
+        "start": "./run.sh"
     },
     "bin": {
-        "rpi-tools": "./main.js"
+        "rpi-tools": "./run.sh"
     },
     "dependencies": {
         "@jellybrick/mpris-service": "^2.1.4",
