@@ -36,7 +36,8 @@ async function switchPlaylist(
 
     if (!isNaN(+pl)) {
         pl = Object.keys(playlists)[+pl];
-        if (pl !== "全部" && !playlists[pl].songs[0]) return tts("歌单为空");
+        if (pl !== "全部" && !playlists[pl]?.songs[0])
+            return tts("歌单为空或不存在");
     } else if (
         typeof pl === "string" &&
         pl !== "全部" &&
@@ -329,6 +330,7 @@ addMenuItems("主页", {
         const opinions = [
             "下载单曲",
             "下载歌单",
+            "仅添加歌单",
             "备份播放列表",
             "修复",
             "取消全部下载任务",
@@ -357,13 +359,22 @@ addMenuItems("主页", {
                     tts("下载失败");
                 }
                 break;
+            case "仅添加歌单":
+                id = +(await input("id"));
+                try {
+                    await ncm.downloadPlaylist(id, false, true);
+                } catch (e) {
+                    error(e);
+                    tts("下载失败");
+                }
+                break;
             case "备份播放列表":
                 ncm.backupPlaylistFile()
                     .then(() => log(tts("完成")))
                     .catch(e => err(tts("无法备份播放列表"), e));
                 break;
             case "修复":
-                ncm.fixSongs();
+                ncm.fixSongs().then(() => switchPlaylist(currentPlaylist));
                 break;
             case "取消全部下载任务":
                 ncm.cancelDownloading();

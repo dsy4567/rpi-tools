@@ -221,7 +221,8 @@ async function downloadMV(
 async function downloadSong(
     /** @type { String | Number | Number[] | String[] } */ ids,
     playListId = 0,
-    playlistName = ""
+    playlistName = "",
+    addOnly = false
 ) {
     await initNcmApi();
     let lastMusicPath = "",
@@ -229,6 +230,7 @@ async function downloadSong(
         timeWillUseMin = 0,
         timeWillUseText = "",
         failures = [];
+    let tempPlaylistFile = structuredClone(playlistFile);
     try {
         if (!(typeof ids === "object" ? ids[0] : ids)) return;
         switch (typeof ids) {
@@ -251,7 +253,6 @@ async function downloadSong(
         }
 
         log("正在准备下载");
-        downloading = true;
 
         let sd = (
             await ncmApi.song_detail({
@@ -260,15 +261,17 @@ async function downloadSong(
             })
         ).body;
 
-        playlistName &&
-            (playlistFile.playlists[playlistName] = playlistFile.playlists[
-                playlistName
-            ] || {
+        if (playListId && playlistName) {
+            tempPlaylistFile.playlists[playlistName] = tempPlaylistFile
+                .playlists[playlistName] || {
                 name: playlistName,
                 pid: playListId,
                 songs: ids,
-            });
+            };
+            tempPlaylistFile.playlists[playlistName].songs = [];
+        }
 
+        downloading = true;
         for (let i = 0; i < sd.songs.length; i++) {
             const D = new Date();
             if (!downloading) {
@@ -284,6 +287,9 @@ async function downloadSong(
                 m.name
             }`;
             while (1) {
+                if (!downloading) {
+                    break;
+                }
                 if (++retryCount >= 2) {
                     error(tts("重试次数过多，已放弃下载"));
                     failures.push(`${m.id}-${artAndName}`);
@@ -291,6 +297,16 @@ async function downloadSong(
                 }
                 reason = await (async () => {
                     try {
+                        musicPath = path.join(
+                            appRootPath.get(),
+                            `data/musics/`,
+                            sf(`${m.id}-${artAndName}.mp3`).replaceAll(" ", "-")
+                        );
+                        if (addOnly) {
+                            lastMusicPath = musicPath;
+                            return true;
+                        }
+
                         timeWillUseMin = Math.ceil(
                             (timeUsed * (sd.songs.length - i + 1)) / 1000 / 60
                         );
@@ -302,14 +318,9 @@ async function downloadSong(
                                       ? "不到 1"
                                       : "大约 " + timeWillUseMin) + " 分钟");
                         log("正在下载:", artAndName, timeWillUseText);
-                        musicPath = path.join(
-                            appRootPath.get(),
-                            `data/musics/`,
-                            sf(`${m.id}-${artAndName}.mp3`).replaceAll(" ", "-")
-                        );
                         if (
                             fs.existsSync(musicPath) &&
-                            playlistFile.songs[m.id]?.errors.length == 0
+                            tempPlaylistFile.songs[m.id]?.errors.length == 0
                         ) {
                             fileExists = true;
                             log(
@@ -388,42 +399,43 @@ async function downloadSong(
                     break;
                 } else {
                     (i + 1) % 10 == 0 &&
+                        !addOnly &&
                         tts(
                             `下载成功, 第 ${i + 1} 个, 共 ${
                                 sd.songs.length
                             } 个 ` + timeWillUseText
                         );
+                    const tempSong = tempPlaylistFile.songs[m.id];
                     const /** @type {import(".").Song} */ s = {
                             name: m.name,
                             sid: m.id,
                             path: musicPath,
-                            errors: [],
-                            downloaded: true,
+                            errors: tempSong?.errors[0] ? tempSong.errors : [],
+                            downloaded: addOnly
+                                ? fs.existsSync(musicPath)
+                                : true,
                             artists: m.ar.map(ar => ({
                                 name: ar.name,
                                 aid: ar.id,
                             })),
                         };
-                    playlistFile.songs[m.id] = s;
+                    tempPlaylistFile.songs[m.id] = s;
                     if (playListId && playlistName) {
-                        playlistFile.playlists[playlistName]
-                            ? playlistFile.playlists[playlistName].songs.push(
-                                  s.sid
-                              )
-                            : (playlistFile.playlists[playlistName] = {
+                        tempPlaylistFile.playlists[playlistName]
+                            ? tempPlaylistFile.playlists[
+                                  playlistName
+                              ].songs.push(s.sid)
+                            : (tempPlaylistFile.playlists[playlistName] = {
                                   name: playlistName,
                                   pid: playListId,
                                   songs: [m.id],
                               });
-                        playlistFile.playlists[playlistName].songs = Array.from(
-                            new Set(playlistFile.playlists[playlistName].songs)
-                        );
                     }
                     playlistEmitter.emit("addSong", {
                         song: s,
                         playlist:
                             playListId && playlistName
-                                ? playlistFile.playlists[playlistName]
+                                ? tempPlaylistFile.playlists[playlistName]
                                 : null,
                     });
                     if (!fileExists) timeUsed = new Date() - D;
@@ -438,13 +450,21 @@ async function downloadSong(
         error(tts("下载失败: 无法获取歌曲信息或其他错误"), e);
     }
     downloading = false;
+
+    if (playListId && playlistName) {
+        tempPlaylistFile.playlists[playlistName].songs = Array.from(
+            new Set(tempPlaylistFile.playlists[playlistName].songs)
+        );
+    }
+    playlistFile = tempPlaylistFile;
     updatePlaylistFile();
     downloadSong(downloadList.shift());
     return lastMusicPath;
 }
 async function downloadPlaylist(
     /** -1: 日推, -2: 喜欢, -3: 最喜欢 */ pid,
-    intelligence = false
+    intelligence = false,
+    addOnly = false
 ) {
     await initNcmApi();
     if (!pid) return;
@@ -509,11 +529,12 @@ async function downloadPlaylist(
     ).forEach(m => {
         ids.push(intelligence ? +m.songInfo.id : +m.id);
     });
-    downloadSong(ids, pid, playlistName);
+    downloadSong(ids, pid, playlistName, addOnly);
 }
 function removePlaylist() {
     chooseItem("选择播放列表", Object.keys(getPlaylistFile().playlists))
         .then(v => {
+            if (downloading) return tts("下载仍在继续, 无法操作");
             if (playlistFile.playlists[v].pid <= 0)
                 return tts("无法删除内置播放列表");
             delete playlistFile.playlists[v];
@@ -522,94 +543,106 @@ function removePlaylist() {
         })
         .catch(e => error(tts("无法删除播放列表"), e));
 }
-function fixSongs() {
-    chooseItem("选择修复项目", [
-        "修复损坏音乐",
-        "修复未下载音乐",
-        "删除 ncmPlaylist.json 中不属于任何播放列表且位于其中的音乐",
-        "删除数据文件夹中不位于 ncmPlaylist.json 的音乐",
-    ])
-        .then(v => {
-            const musicDir = path.join(appRootPath.get(), "data/musics/");
+/** 修复和清理音乐，在操作成功执行后 resolve */
+async function fixSongs() {
+    return new Promise((resolve, reject) => {
+        chooseItem("选择修复项目", [
+            "修复损坏音乐",
+            "修复未下载音乐",
+            "删除 ncmPlaylist.json 中不属于任何播放列表且位于其中的音乐",
+            "删除数据文件夹中不位于 ncmPlaylist.json 的音乐",
+        ])
+            .then(v => {
+                const musicDir = path.join(appRootPath.get(), "data/musics/");
 
-            let /** @type { Number[] } */ downloadIds,
-                /** @type { Set<Number> } */ removeIds,
-                /** @type { Set<Number> } */ reserveIds,
-                /** @type { Set<String> } */ removeFileNames;
+                let /** @type { Number[] } */ downloadIds,
+                    /** @type { Set<Number> } */ removeIds,
+                    /** @type { Set<Number> } */ reserveIds,
+                    /** @type { Set<String> } */ removeFileNames;
 
-            switch (v) {
-                case "修复损坏音乐":
-                    downloadIds = [];
-                    Object.values(playlistFile.songs).forEach(
-                        s => s.errors.length >= 1 && downloadIds.push(s.sid)
-                    );
-                    log("downloadIds", downloadIds);
-                    break;
-                case "修复未下载音乐":
-                    downloadIds = [];
-                    let allFileNames = new Set(fs.readdirSync(musicDir));
-                    Object.values(playlistFile.songs).forEach(
-                        s =>
-                            (!s.downloaded ||
-                                !allFileNames.has(path.parse(s.path).base)) &&
-                            downloadIds.push(s.sid)
-                    );
-                    log("downloadIds", downloadIds);
-                    break;
-                case "删除 ncmPlaylist.json 中不属于任何播放列表且位于其中的音乐":
-                    let AllIds = new Set(
-                            Object.keys(playlistFile.songs).map(v => +v)
-                        ),
-                        AllIds2 = new Set();
-                    Object.values(playlistFile.playlists).forEach(
-                        p => (AllIds2 = AllIds2.union(new Set(p.songs)))
-                    );
-                    removeIds = AllIds.difference(AllIds2);
-                    reserveIds = AllIds2;
-                    log("removeIds", removeIds);
-                    break;
-                case "删除数据文件夹中不位于 ncmPlaylist.json 的音乐":
-                    removeFileNames = new Set(
-                        fs.readdirSync(musicDir)
-                    ).difference(
-                        new Set(
-                            Object.values(playlistFile.songs).map(
-                                s => path.parse(s.path).base
+                switch (v) {
+                    case "修复损坏音乐":
+                        downloadIds = [];
+                        Object.values(playlistFile.songs).forEach(
+                            s => s.errors.length >= 1 && downloadIds.push(s.sid)
+                        );
+                        log("downloadIds", downloadIds);
+                        break;
+                    case "修复未下载音乐":
+                        downloadIds = [];
+                        let allFileNames = new Set(fs.readdirSync(musicDir));
+                        Object.values(playlistFile.songs).forEach(
+                            s =>
+                                (!s.downloaded ||
+                                    !allFileNames.has(
+                                        path.parse(s.path).base
+                                    )) &&
+                                downloadIds.push(s.sid)
+                        );
+                        log("downloadIds", downloadIds);
+                        break;
+                    case "删除 ncmPlaylist.json 中不属于任何播放列表且位于其中的音乐":
+                        let AllIds = new Set(
+                                Object.keys(playlistFile.songs).map(v => +v)
+                            ),
+                            AllIds2 = new Set();
+                        Object.values(playlistFile.playlists).forEach(
+                            p => (AllIds2 = AllIds2.union(new Set(p.songs)))
+                        );
+                        removeIds = AllIds.difference(AllIds2);
+                        reserveIds = AllIds2;
+                        log("removeIds", removeIds);
+                        break;
+                    case "删除数据文件夹中不位于 ncmPlaylist.json 的音乐":
+                        removeFileNames = new Set(
+                            fs.readdirSync(musicDir)
+                        ).difference(
+                            new Set(
+                                Object.values(playlistFile.songs).map(
+                                    s => path.parse(s.path).base
+                                )
+                            )
+                        );
+
+                        log("removeFileNames", removeFileNames);
+                        break;
+
+                    default:
+                        return;
+                }
+
+                input("输入 Y 继续操作").then(v => {
+                    if (v !== "Y") return tts("取消");
+
+                    if (downloadIds && downloadIds[0]) {
+                        downloadSong(downloadIds).then(() => resolve());
+                    } else if (removeFileNames?.size >= 1) {
+                        Promise.all(
+                            Array.from(removeFileNames).map(n =>
+                                fs.promises.rm(path.join(musicDir, n), {
+                                    force: true,
+                                })
                             )
                         )
-                    );
-
-                    log("removeFileNames", removeFileNames);
-                    break;
-
-                default:
-                    return;
-            }
-
-            input("输入 Y 继续操作").then(v => {
-                if (v !== "Y") return tts("取消");
-
-                if (downloadIds && downloadIds[0]) {
-                    downloadSong(downloadIds);
-                } else if (removeFileNames?.size >= 1) {
-                    Promise.all(
-                        Array.from(removeFileNames).map(n =>
-                            fs.promises.rm(path.join(musicDir, n), {
-                                force: true,
+                            .then(() => {
+                                log(tts("完成"));
+                                resolve();
                             })
-                        )
-                    )
-                        .then(() => log(tts("完成")))
-                        .catch(e => error(tts("操作失败".e)));
-                } else if (removeIds?.size >= 1) {
-                    removeIds.forEach(id => {
-                        delete playlistFile.songs[id];
-                    });
-                    updatePlaylistFile();
-                }
-            });
-        })
-        .catch(e => error(tts("无法修复已下载音乐"), e));
+                            .catch(e => {
+                                error(tts("操作失败".e));
+                                resolve();
+                            });
+                    } else if (removeIds?.size >= 1) {
+                        removeIds.forEach(id => {
+                            delete playlistFile.songs[id];
+                        });
+                        updatePlaylistFile();
+                        resolve();
+                    }
+                });
+            })
+            .catch(e => error(tts("无法修复已下载音乐"), e));
+    });
 }
 async function like(/** @type {Number} */ id) {
     await initNcmApi();
