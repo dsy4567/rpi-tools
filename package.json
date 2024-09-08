@@ -20,7 +20,7 @@
     },
     "dependencies": {
         "@jellybrick/mpris-service": "^2.1.4",
-        "NeteaseCloudMusicApi": "^4.22.0",
+        "NeteaseCloudMusicApi": "file:./NeteaseCloudMusicApi",
         "axios": "^1.7.4",
         "cli-color": "^2.0.4",
         "cookie": "^0.6.0",

@@ -123,11 +123,14 @@ function getPlaylistFile() {
 }
 function updateNcmHistory(id, sourceid, currentSec) {
     if (!id) return;
+    currentSec = Math.ceil(currentSec);
     clearTimeout(historyTimeout);
     historyTimeout = setTimeout(() => {
         initNcmApi().then(() => {
             log(
-                `${doNotUpdateNcmHistory ? "未" : "已"}更新听歌历史`,
+                `${
+                    loginStatus.logged && !doNotUpdateNcmHistory ? "已" : "未"
+                }更新听歌历史`,
                 id,
                 sourceid,
                 currentSec
@@ -140,7 +143,7 @@ function updateNcmHistory(id, sourceid, currentSec) {
                         sourceid,
                         time: currentSec,
                         cookie: loginStatus.cookie,
-                        r: "" + Math.random(),
+                        r: "" + +new Date(),
                     })
                 )
                     .then(() => {})
