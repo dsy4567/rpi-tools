@@ -57,7 +57,7 @@ async function switchPlaylist(
                 tempMusicPaths.push(path.join(musicDir, file));
             });
         } catch (err) {
-            error(tts("读取音乐目录失败"), err);
+            error(tts("读取音乐目录失败", false), err);
             return;
         }
     } else {
@@ -81,7 +81,11 @@ async function switchPlaylist(
     musicPathsIndex = tempMusicPathsIndex;
     controlledByUser = _controlledByUser;
     setPlayMode();
-    await updatePlayerStatus(null, false, musicPaths[musicPathsIndex]);
+    await updatePlayerStatus(
+        null,
+        !controlledByUser,
+        musicPaths[musicPathsIndex]
+    );
     currentNcmPlaylist = tempCurrentNcmPlaylist;
     currentPlaylist = pl;
     musicPaths[0] && mpgPlayer.play(musicPaths[0]);
@@ -94,15 +98,16 @@ async function switchPlaylist(
         }
     );
 }
+// TODO: 日推默认顺序播放，切换播放模式后修正 index
 function setPlayMode(
     /** @type { import(".").PlayMode } */ mode = currentPlayMode
 ) {
     switch (mode) {
         case "autonext":
-            musicPaths = Array.from(originalMusicPaths);
+            musicPaths = structuredClone(originalMusicPaths);
             break;
         case "shuffle":
-            musicPaths = Array.from(shuffle(originalMusicPaths));
+            musicPaths = shuffle(structuredClone(originalMusicPaths));
             break;
         case "repeat":
             break;
@@ -182,7 +187,7 @@ async function previous() {
 async function next(_controlledByUser = true) {
     controlledByUser = _controlledByUser;
     if (++musicPathsIndex > musicPaths.length - 1) {
-        return switchPlaylist(currentPlaylist, false);
+        return switchPlaylist(currentPlaylist, controlledByUser);
         // musicPathsIndex = 0;
         // if (currentPlayMode === "shuffle") setPlayMode("shuffle");
     }
@@ -236,7 +241,7 @@ mpgPlayer.on("resume", e => {
 });
 mpgPlayer.on("error", e => {
     if (("" + e).includes("No stream opened")) return;
-    error(tts("播放失败: " + playerStatus.songName), e);
+    error(tts("播放失败: " + playerStatus.songName, false), e);
     if (currentPlayMode === "repeat") currentPlayMode = "autonext";
     playerStatus.song?.errors.push("" + e);
     if (!fs.existsSync(playerStatus.path) && playerStatus.song)
@@ -345,8 +350,7 @@ addMenuItems("主页", {
                     const p = (await ncm.downloadSong(id)) || "";
                     p && switchPlaylist([p]);
                 } catch (e) {
-                    error(e);
-                    tts("下载失败");
+                    error(tts("下载失败", false), e);
                 }
                 break;
             case "下载歌单":
@@ -355,8 +359,7 @@ addMenuItems("主页", {
                 try {
                     await ncm.downloadPlaylist(id, intelligence);
                 } catch (e) {
-                    error(e);
-                    tts("下载失败");
+                    error(tts("下载失败", false), e);
                 }
                 break;
             case "仅添加歌单":
@@ -364,14 +367,13 @@ addMenuItems("主页", {
                 try {
                     await ncm.downloadPlaylist(id, false, true);
                 } catch (e) {
-                    error(e);
-                    tts("下载失败");
+                    error(tts("下载失败", false), e);
                 }
                 break;
             case "备份播放列表":
                 ncm.backupPlaylistFile()
-                    .then(() => log(tts("完成")))
-                    .catch(e => err(tts("无法备份播放列表"), e));
+                    .then(() => log(tts("完成", false)))
+                    .catch(e => err(tts("无法备份播放列表", false), e));
                 break;
             case "修复":
                 ncm.fixSongs().then(() => switchPlaylist(currentPlaylist));
@@ -396,7 +398,8 @@ addMenuItems("主页", {
         } catch (e) {}
     },
     s: async k => {
-        ncm.search();
+        const p = await ncm.search();
+        p && switchPlaylist([p]);
     },
     I: k => {
         // init();
