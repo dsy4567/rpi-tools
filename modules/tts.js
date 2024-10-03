@@ -9,11 +9,11 @@ const { log, error } = logger("TTS");
 let /** @type {cp.ChildProcess} */ p, /** @type {NodeJS.Timeout} */ timeout;
 
 module.exports = {
-    tts(/** @type {String} */ t) {
+    tts(/** @type {String} */ t, echo = true) {
         if (!t) return t;
+        echo && log((t = t.replaceAll(/[0-9]+/g, ".$&")));
         clearTimeout(timeout);
         timeout = setTimeout(() => {
-            log((t = t.replaceAll(/[0-9]+/g, ".$&")));
             try {
                 p && p.kill();
                 p = cp.execFile("espeak", ["-v", TTSEspeakLanguage || "zh", t]);
