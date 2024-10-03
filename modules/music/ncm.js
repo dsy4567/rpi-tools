@@ -39,12 +39,17 @@ async function initNcmApi() {
 async function ncmStatusCheck(
     /** @type {Promise<import("NeteaseCloudMusicApi").Response>} */ res
 ) {
-    await initNcmApi();
-    const resp = await res;
-    if (resp.body.code === 200 || resp.body.status === 200) return resp;
-    throw new Error("" + resp);
+    try {
+        await initNcmApi();
+        const resp = await res;
+        if (resp.body.code === 200 || resp.body.status === 200) return resp;
+        throw new Error("" + resp);
+    } catch (e) {
+        throw e;
+    }
 }
 async function login(clear = false) {
+    // TODO: 因网络问题登录失败则重试
     if (clear)
         loginStatus = {
             cookie: "",
@@ -88,6 +93,15 @@ async function login(clear = false) {
             }
         } else throw new Error("未登录或登录已失效");
         log("登录成功", loginStatus.nickname, loginStatus.uid);
+        ncmStatusCheck(
+            ncmApi.daily_signin({ type: 1, cookie: loginStatus.cookie })
+        )
+            .then(resp => {
+                log("签到成功", resp.body.message);
+            })
+            .catch(e => {
+                warn("签到失败", e);
+            });
         return loginStatus;
     } catch (e) {
         warn("登录失败", e);
@@ -157,7 +171,8 @@ function updateNcmHistory(id, sourceid, currentSec) {
 function cancelDownloading() {
     downloadList = [];
     downloading = false;
-    log(tts("已取消全部下载任务"));
+    clearRetrySleeper?.();
+    log(tts("已取消全部下载任务", false));
 }
 /** 下载有 MV 的付费音乐, 成功返回 false, 失败返回 true */
 async function downloadMV(
@@ -248,7 +263,7 @@ async function downloadSong(
                 return;
         }
         if (downloading) {
-            warn(tts("下载仍在继续, 已添加到队列"));
+            warn(tts("下载仍在继续, 已添加到队列", false));
             downloadList.push(ids);
             return;
         }
@@ -274,7 +289,7 @@ async function downloadSong(
 
         downloading = true;
         for (let i = 0; i < sd.songs.length; i++) {
-            const D = new Date();
+            let D;
             if (!downloading) {
                 addOnly = true;
             }
@@ -292,10 +307,12 @@ async function downloadSong(
                     addOnly = true;
                 }
                 if (++retryCount >= 2) {
-                    error(tts("重试次数过多，已放弃下载"));
+                    error(tts("重试次数过多，已放弃下载", false));
                     failures.push(`${m.id}-${artAndName}`);
                     break;
                 }
+
+                D = new Date();
                 reason = await (async () => {
                     try {
                         musicPath = path.join(
@@ -305,6 +322,18 @@ async function downloadSong(
                         );
                         if (addOnly) {
                             lastMusicPath = musicPath;
+                            return true;
+                        }
+                        if (
+                            fs.existsSync(musicPath) &&
+                            tempPlaylistFile.songs[m.id]?.errors.length == 0
+                        ) {
+                            fileExists = true;
+                            log(
+                                "文件已存在",
+                                m.name,
+                                (lastMusicPath = musicPath)
+                            );
                             return true;
                         }
 
@@ -319,18 +348,7 @@ async function downloadSong(
                                       ? "不到 1"
                                       : "大约 " + timeWillUseMin) + " 分钟");
                         log("正在下载:", artAndName, timeWillUseText);
-                        if (
-                            fs.existsSync(musicPath) &&
-                            tempPlaylistFile.songs[m.id]?.errors.length == 0
-                        ) {
-                            fileExists = true;
-                            log(
-                                "文件已存在",
-                                m.name,
-                                (lastMusicPath = musicPath)
-                            );
-                            return true;
-                        }
+
                         if (m.fee == 1) {
                             warn("vip 音乐");
                             return false;
@@ -378,14 +396,18 @@ async function downloadSong(
                     }
                 })();
 
+                const retryTimeout =
+                    ncmRetryTimeout[retryCount] || 5 * 60 * 1000;
                 if (typeof reason === "string") {
                     error(
                         tts(
-                            `下载失败, ${ncmRetryTimeout / 1000} 秒后重试: ` +
+                            `下载失败, ${retryTimeout / 1000} 秒后重试: ` +
                                 reason
                         )
                     );
-                    await sleep(ncmRetryTimeout);
+                    await sleep(retryTimeout, clearSleeper => {
+                        clearRetrySleeper = clearSleeper;
+                    });
                 } else if (
                     reason === false &&
                     (await downloadMV(
@@ -444,10 +466,10 @@ async function downloadSong(
             }
         }
 
-        log(tts(`下载完成, 共 ${failures.length} 首无法下载`));
+        log(tts(`下载完成, 共 ${failures.length} 首无法下载`, false));
         failures[0] && warn("无法下载:", failures.join(", "));
     } catch (e) {
-        error(tts("下载失败: 无法获取歌曲信息或其他错误"), e);
+        error(tts("下载失败: 无法获取歌曲信息或其他错误", false, false), e);
     }
     downloading = false;
 
@@ -466,70 +488,76 @@ async function downloadPlaylist(
     intelligence = false,
     addOnly = false
 ) {
-    await initNcmApi();
-    if (!pid) return;
-    if (intelligence && !loginStatus.logged) {
-        return warn(tts("需要登录"));
-    }
-    let j;
-    if (pid == -1) {
-        if (!loginStatus.logged) {
-            return warn(tts("需要登录"));
+    try {
+        await initNcmApi();
+        if (!pid) return;
+        if (intelligence && !loginStatus.logged) {
+            return warn(tts("需要登录", false));
         }
-        // 日推 需要登录
-        j = ncmApi.recommend_songs({
-            cookie: loginStatus.cookie,
-        });
-        intelligence = false;
-    } else if (pid == -2) return;
-    else if (pid == -3) {
-        downloadSong(playlistFile.playlists["最喜欢"].songs);
-        return;
-    } else if (pid > 0 && !intelligence)
-        // 歌单 非心动模式 无需登录
-        j = ncmApi.playlist_track_all({
-            id: pid,
-            cookie: loginStatus.cookie,
-            limit: playlistLimit,
-        });
-    else if (pid > 0 && intelligence && loginStatus.logged)
-        // 歌单 心动模式 需要登录
-        j = ncmApi.playmode_intelligence_list({
-            cookie: loginStatus.cookie,
-            pid,
-            id: (
-                await ncmApi.playlist_track_all({
-                    id: pid,
-                    cookie: loginStatus.cookie,
-                    limit: 1,
-                })
-            ).body.songs[0].id,
-        });
-    else throw new Error("未登录/非法参数");
+        let j;
+        if (pid == -1) {
+            if (!loginStatus.logged) {
+                return warn(tts("需要登录", false));
+            }
+            // 日推 需要登录
+            j = ncmApi.recommend_songs({
+                cookie: loginStatus.cookie,
+            });
+            intelligence = false;
+        } else if (pid == -2) return;
+        else if (pid == -3) {
+            downloadSong(playlistFile.playlists["最喜欢"].songs);
+            return;
+        } else if (pid > 0 && !intelligence)
+            // 歌单 非心动模式 无需登录
+            j = ncmApi.playlist_track_all({
+                id: pid,
+                cookie: loginStatus.cookie,
+                limit: playlistLimit,
+            });
+        else if (pid > 0 && intelligence && loginStatus.logged)
+            // 歌单 心动模式 需要登录
+            j = ncmApi.playmode_intelligence_list({
+                cookie: loginStatus.cookie,
+                pid,
+                id: (
+                    await ncmApi.playlist_track_all({
+                        id: pid,
+                        cookie: loginStatus.cookie,
+                        limit: 1,
+                    })
+                ).body.songs[0].id,
+            });
+        else throw new Error("未登录/非法参数");
 
-    const playlistName =
-        (intelligence ? "心动模式-" : "") +
+        const playlistName =
+            (intelligence ? "心动模式-" : "") +
+            (pid == -1
+                ? "日推"
+                : `${
+                      (
+                          await ncmStatusCheck(
+                              ncmApi.playlist_detail({
+                                  id: pid,
+                                  cookie: loginStatus.cookie,
+                              })
+                          )
+                      ).body.playlist.name
+                  }-${pid}`);
+        let /** @type { number[] } */ ids = [];
+        j = await j;
         (pid == -1
-            ? "日推"
-            : `${
-                  (
-                      await ncmApi.playlist_detail({
-                          id: pid,
-                          cookie: loginStatus.cookie,
-                      })
-                  ).body.playlist.name
-              }-${pid}`);
-    let /** @type { number[] } */ ids = [];
-    j = await j;
-    (pid == -1
-        ? j.body.data.dailySongs
-        : intelligence
-        ? j.body.data
-        : j.body.songs
-    ).forEach(m => {
-        ids.push(intelligence ? +m.songInfo.id : +m.id);
-    });
-    downloadSong(ids, pid, playlistName, addOnly);
+            ? j.body.data.dailySongs
+            : intelligence
+            ? j.body.data
+            : j.body.songs
+        ).forEach(m => {
+            ids.push(intelligence ? +m.songInfo.id : +m.id);
+        });
+        downloadSong(ids, pid, playlistName, addOnly);
+    } catch (e) {
+        error(tts("无法获取播放列表", true));
+    }
 }
 function removePlaylist() {
     chooseItem("选择播放列表", Object.keys(getPlaylistFile().playlists))
@@ -541,7 +569,7 @@ function removePlaylist() {
             updatePlaylistFile();
             tts("删除成功");
         })
-        .catch(e => error(tts("无法删除播放列表"), e));
+        .catch(e => error(tts("无法删除播放列表", false), e));
 }
 /** 修复和清理音乐，在操作成功执行后 resolve */
 async function fixSongs() {
@@ -625,11 +653,11 @@ async function fixSongs() {
                             )
                         )
                             .then(() => {
-                                log(tts("完成"));
+                                log(tts("完成", false));
                                 resolve();
                             })
                             .catch(e => {
-                                error(tts("操作失败".e));
+                                error(tts("操作失败", false), e);
                                 resolve();
                             });
                     } else if (removeIds?.size >= 1) {
@@ -641,7 +669,7 @@ async function fixSongs() {
                     }
                 });
             })
-            .catch(e => error(tts("无法修复已下载音乐"), e));
+            .catch(e => error(tts("无法修复已下载音乐", false), e));
     });
 }
 async function like(/** @type {Number} */ id) {
@@ -783,47 +811,56 @@ async function like(/** @type {Number} */ id) {
     }
 }
 async function search() {
-    await initNcmApi();
-    if (!loginStatus.logged) tts("未登录");
-    const kwd = await input("搜索词");
-    if (!kwd) return;
-    ncmStatusCheck(
-        ncmApi.search({
-            keywords: kwd,
-            cookie: loginStatus.cookie,
-            type: 1018,
-        })
-    )
-        .then(async resp => {
-            const songs = resp.body.result?.song?.songs || [],
-                playLists = resp.body.result?.playList?.playLists || [];
-            let items = {};
-            if (
-                (await chooseItem("选择单曲或歌单", ["单曲", "歌单"])) == "单曲"
-            ) {
-                songs.forEach(item => {
-                    items[
-                        `${item.name} 由 ${item.ar.map(
-                            ar => ar.name
-                        )} 演唱 id ${item.id}`
-                    ] = item.id;
-                });
-                const keys = Object.keys(items);
-                downloadSong(+items[await chooseItem("单曲搜索结果", keys)]);
-            } else {
-                playLists.forEach(item => {
-                    items[`${item.name} id ${item.id}`] = item.id;
-                });
-                const keys = Object.keys(items);
-                downloadPlaylist(
-                    +items[await chooseItem("歌单搜索结果", keys)]
-                ).catch(e => error(tts("歌单下载失败"), e));
-            }
-        })
-        .catch(e => {
-            error(e);
-            tts("搜索失败");
-        });
+    return new Promise(async (resolve, reject) => {
+        await initNcmApi();
+        if (!loginStatus.logged) tts("未登录");
+        const kwd = await input("搜索词");
+        if (!kwd) return;
+        ncmStatusCheck(
+            ncmApi.search({
+                keywords: kwd,
+                cookie: loginStatus.cookie,
+                type: 1018,
+            })
+        )
+            .then(async resp => {
+                const songs = resp.body.result?.song?.songs || [],
+                    playLists = resp.body.result?.playList?.playLists || [];
+                let items = {};
+                if (
+                    (await chooseItem(`${kwd}的搜索结果`, ["单曲", "歌单"])) ==
+                    "单曲"
+                ) {
+                    songs.forEach(item => {
+                        items[
+                            `${item.name} 由 ${item.ar.map(
+                                ar => ar.name
+                            )} 演唱 id ${item.id}`
+                        ] = item.id;
+                    });
+                    const keys = Object.keys(items);
+                    resolve(
+                        downloadSong(
+                            +items[
+                                await chooseItem(`${kwd}的单曲搜索结果`, keys)
+                            ]
+                        )
+                    );
+                } else {
+                    playLists.forEach(item => {
+                        items[`${item.name} id ${item.id}`] = item.id;
+                    });
+                    const keys = Object.keys(items);
+                    downloadPlaylist(
+                        +items[await chooseItem(`${kwd}的歌单搜索结果`, keys)]
+                    ).catch(e => error(tts("歌单下载失败", false), e));
+                }
+            })
+            .catch(e => {
+                error(e);
+                tts("搜索失败");
+            });
+    });
 }
 
 const playlistPath = path.join(appRootPath.get(), "data/ncmPlaylist.json");
@@ -833,6 +870,7 @@ const /** @type {import(".").PlaylistEmitterT} */ playlistEmitter =
         new PlaylistEmitter();
 
 let downloading = false,
+    /** @type {NodeJS.Timeout} */ clearRetrySleeper,
     /** @type { ( String | Number | Number[] | String[] )[] } */ downloadList =
         [],
     /** @type { import(".").PlaylistFile } */ playlistFile = {

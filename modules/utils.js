@@ -115,17 +115,25 @@ module.exports = {
             },
         };
     },
-    async sleep(t) {
+    async sleep(t, cb) {
         return new Promise((resolve, reject) => {
-            setTimeout(() => {
+            const sleeper = setTimeout(() => {
                 resolve();
             }, t);
+            cb?.(() => {
+                clearTimeout(sleeper);
+                resolve();
+            });
         });
     },
     shuffle(arr) {
         return arr.sort(() => Math.random() - 0.5);
     },
-    execFile(file, args, exitTimeout = 0) {
+    execFile(
+        /** @type {String} */ file,
+        /** @type {String[]} */ args,
+        exitTimeout = 0
+    ) {
         return new Promise((resolve, reject) => {
             const chp = cp.execFile(file, args, e => {
                 if (e) reject(e);
