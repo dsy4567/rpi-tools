@@ -15,6 +15,7 @@ try {
     error("无法加载自定义配置", e);
 }
 
+// TODO: 注意在其他文件处理配置为空的情况
 const defaultConfig = {
     /** 默认播放模式 @type { import("./music/index").PlayMode } */
     defaultPlayMode: "shuffle",
@@ -33,9 +34,12 @@ const defaultConfig = {
     /** 下载音乐时不带 cookie */
     ncmDownloadSongWithCookie: true,
     /** 音乐下载失败时（可能触发反爬）的重试间隔，单位毫秒 */
-    ncmRetryTimeout: 5 * 60 * 1000,
+    ncmRetryTimeout: [60 * 1000, 3 * 60 * 1000, 5 * 60 * 1000],
+    /** 自动签到 */
+    ncmDailySignin: true,
     /** 进程优先级 */
     priority: -7,
+    // TODO: 增加限制
     /** 下载播放列表时的歌曲数限制 */
     playlistLimit: 300,
     /** espeak 语言 */

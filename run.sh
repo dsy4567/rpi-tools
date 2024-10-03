@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/bash
 cd `dirname $0`
 exitCode=0
 timeout=5

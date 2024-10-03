@@ -23,6 +23,7 @@ type PlaylistFile = {
 };
 
 type LoginStatus = {
+    result: "netErr" | "invalid" | "success" | "";
     logged: boolean;
     cookie: string;
     nickname: null | string;

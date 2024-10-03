@@ -2,11 +2,10 @@
 
 const cp = require("child_process");
 const readline = require("readline");
-const { mkdirSync } = require("graceful-fs");
-const path = require("path");
 
+const { rpicam, setPowerMode } = require("./toolkit");
 const { tts } = require("./tts");
-const { dateForFileName, appRootPath, logger } = require("./utils");
+const { logger } = require("./utils");
 const { log, error, warn } = logger("menus");
 
 function pushMenuState(/** @type {String} */ s, _disableHelp = false) {
@@ -73,8 +72,9 @@ async function input(/** @type {String} */ prompt) {
     return new Promise((resolve, reject) => {
         pushMenuState("input", true);
         inpStr = "";
-        tts(prompt);
+        tts(prompt, false);
         inpCb = resolve;
+        process.stdout.write(`${(inpPrompt = prompt)}> ${inpStr}`);
     });
 }
 /** @returns {Promise<String>} */
@@ -96,30 +96,11 @@ async function chooseItem(
         itemChooserCb = resolve;
     });
 }
-function rpicam() {
-    const p = path.join(appRootPath.get(), "data/photos");
-    tts("拍照中");
-    mkdirSync(p, { recursive: true });
-    cp.exec(
-        `sudo rpicam-still -o ${path.join(p, dateForFileName() + ".jpeg")}`,
-        e => {
-            if (e) return tts("拍照失败");
-            tts("拍照成功");
-        }
-    );
-}
 
-let inpStr = "",
-    inpCb = s => {};
-let /** @type {Record<String, {selectedIndex: Number, items: String[]}>} */ itemChooserStates =
-        {},
-    currentItemChooser = "",
-    itemChooserCb = () => {};
-let disableHelp = false;
-let menuStates = [];
-let quickMenus = {
+const quickMenus = {
+    // TODO: 在这里显示歌曲名
     喜欢: "l",
-    上一曲: "b",
+    上下一曲: { 上一曲: "b", 下一曲: "n" },
     "网易云音乐-更多选项": {
         选择播放列表: "p",
         切换播放模式: {
@@ -127,31 +108,58 @@ let quickMenus = {
             随机播放: "S",
             单曲循环: "R",
         },
+        歌曲信息: "i",
         更新播放列表: "U",
         更新登录信息: "_ncm.loginAgain",
         备份播放列表: "_ncm.backupPlaylistFile",
         删除播放列表: "_ncm.removePlaylist",
         取消全部下载任务: "_ncm.cancelDownloading",
-        歌曲信息: "i",
     },
-    电源: {
+    更多选项: {
+        拍照: () => {
+            rpicam();
+        }, // TODO: 改为设备详细信息
+        IP: () => {
+            tts(
+                cp
+                    .execSync("hostname -I")
+                    .toString()
+                    .trim()
+                    .replaceAll(".", "点")
+                    .replaceAll(":", "冒号")
+                    .replaceAll(" ", "和")
+            );
+        },
+        // TODO: catch
         定时关机: () => {
             cp.execSync("sudo shutdown 40");
         },
-        重启: () => {
-            cp.execSync("sudo reboot");
+        取消定时关机: () => {
+            cp.execSync("sudo shutdown 40");
         },
         关机: () => {
             cp.execSync("sudo shutdown 0");
         },
-    },
-    小工具: {
-        拍照: () => {
-            rpicam();
+        重启: () => {
+            cp.execSync("sudo reboot");
+        },
+        电源选项: async () => {
+            setPowerMode(
+                await chooseItem("电源选项", ["省电", "平衡", "性能"])
+            );
         },
     },
-    下一曲: "n",
 };
+
+let inpStr = "",
+    inpPrompt = "",
+    inpCb = s => {};
+let /** @type {Record<String, {selectedIndex: Number, items: String[]}>} */ itemChooserStates =
+        {},
+    currentItemChooser = "",
+    itemChooserCb = () => {};
+let disableHelp = false;
+let menuStates = [];
 let menus = {
     主页: {
         Q: k => {
@@ -189,29 +197,10 @@ let menus = {
         c: k => {
             rpicam();
         },
-        p: k => {
-            chooseItem("电源选项", ["省电", "平衡", "性能"]).then(v => {
-                let m;
-                switch (v) {
-                    case "省电":
-                        m = "powersave";
-                        break;
-                    case "平衡":
-                        m = "ondemand";
-                        break;
-                    case "性能":
-                        m = "performance";
-                        break;
-                    default:
-                        break;
-                }
-                m &&
-                    execFile("sudo", ["cpufreq-set", "-g", m])
-                        .then(() => {})
-                        .catch(e => {
-                            error("无法更改电源选项", e);
-                        });
-            });
+        p: async k => {
+            setPowerMode(
+                await chooseItem("电源选项", ["省电", "平衡", "性能"])
+            );
         },
     },
     键盘锁定: {
@@ -222,14 +211,16 @@ let menus = {
     input: {
         "\r": k => {
             disableHelp = false;
-            process.stdout.write("\n");
+            console.log();
             popMenuState();
             inpCb(inpStr);
         },
         "\x7F": k => {
             // Backspace
             inpStr = inpStr.substring(0, inpStr.length - 1);
-            process.stdout.write("\x08 \x08");
+            process.stdout.clearLine(0);
+            process.stdout.cursorTo(0);
+            process.stdout.write(`${inpPrompt}> ${inpStr}`);
         },
         default: k => {
             if (/[\S ]/g.test(k) && !/[\x00-\x1f\x7f]/g.test(k)) {
