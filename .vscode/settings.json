@@ -1,3 +1,11 @@
 {
-    "typescript.tsdk": "node_modules/typescript/lib"
+    "typescript.tsdk": "node_modules/typescript/lib",
+    "files.eol": "\n",
+    "terminal.integrated.profiles.windows": {
+        "ssh": {
+            "path": "ssh",
+            "args": ["dsy@dsy-vm"],
+            "icon": "terminal-linux"
+        }
+    }
 }
