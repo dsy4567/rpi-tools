@@ -24,7 +24,7 @@
 
 ## 🛠 安装
 
-> **Warning**: rpi-tools 仅可在 Linux 平台安装和运行，如需在 Windows 进行开发，请在 Linux 安装依赖后使用文件夹映射，或使用 WSL
+> rpi-tools 仅可在 Linux 平台安装和运行，如需在 Windows 进行开发，请使用 WSL，或在 Linux 安装依赖后使用文件夹映射
 
 -   下载源码，安装依赖
 
