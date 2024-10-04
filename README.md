@@ -20,19 +20,21 @@
 -   拍照（使用 `rpicam`）
 -   蓝牙耳机切歌/使用快捷菜单进行常用操作
 -   崩溃保护
-    -   崩溃后使用 [Music On Console](https://github.com/jonsafari/mocp) 提供最低限度的音乐播放服务
+    -   多次崩溃后使用 [Music On Console](https://github.com/jonsafari/mocp) 提供最低限度的音乐播放服务
 
 ## 🛠 安装
+
+> **Warning**: rpi-tools 仅可在 Linux 平台安装和运行，如需在 Windows 进行开发，请在 Linux 安装依赖后使用文件夹映射，或使用 WSL
 
 -   下载源码，安装依赖
 
     ```bash
-    # pulseaudio pulseaudio-module-bluetooth 可根据需要替换为其他同类软件包，如 pipewire
-    sudo apt install nodejs npm moc pulseaudio pulseaudio-module-bluetooth bluez espeak cpufrequtils screen ffmpeg
-
-    # 如果安装的 nodejs 不是最新版（v22.6.0 及以上），则需要使用以下命令重新安装最新版
-    npm i -g n
-    n latest
+    # pulseaudio pulseaudio-module-bluetooth 等可根据需要替换为其他同类软件包，如 pipewire
+    sudo apt install mpg123 espeak pulseaudio pulseaudio-module-bluetooth bluez bluez-tools
+    # 不太重要但建议安装的依赖，不安装会导致少量功能残缺
+    sudo apt install moc cpufrequtils ffmpeg screen
+    # 安装最新版的 nodejs
+    curl -fsSL https://www.unpkg.com/n/bin/n | bash -s latest
     # 这里建议重启 shell
 
     git clone https://github.com/dsy4567/rpi-tools
