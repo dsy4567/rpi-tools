@@ -35,11 +35,11 @@
     sudo apt install moc cpufrequtils ffmpeg screen
     # 安装最新版的 nodejs
     curl -fsSL https://www.unpkg.com/n/bin/n | bash -s latest
-    # 这里建议重启 shell
+    npm i -g pnpm
 
     git clone https://github.com/dsy4567/rpi-tools
     cd rpi-tools
-    npm i
+    pnpm i
     ```
 
 -   配置 sudo 免密（用于关机重启、设置进程优先级、使用 `rpicam` 拍照）
