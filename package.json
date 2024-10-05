@@ -6,27 +6,33 @@
     "bugs": "https://github.com/dsy4567/rpi-tools/issues",
     "main": "./main.js",
     "os": [
-        "linux"
+        "linux",
+        "win32"
     ],
     "engines": {
         "node": ">=22"
     },
     "license": "MIT",
     "scripts": {
-        "start": "./run.sh"
+        "debug": "node --inspect=0.0.0.0 ./main.js from-npm-run-debug",
+        "start": "./run.sh",
+        "server": "http-server data/musics"
     },
     "bin": {
         "rpi-tools": "./run.sh"
     },
     "dependencies": {
         "@jellybrick/mpris-service": "^2.1.4",
-        "NeteaseCloudMusicApi": "file:./NeteaseCloudMusicApi",
         "axios": "^1.7.4",
         "cli-color": "^2.0.4",
         "cookie": "^0.6.0",
+        "dlnacasts2": "^0.2.0",
+        "find-process": "^1.4.7",
         "graceful-fs": "^4.2.11",
+        "http-server": "^14.1.1",
         "jsonfile": "^6.1.0",
         "mpg123": "^0.2.3",
+        "NeteaseCloudMusicApi": "file:./NeteaseCloudMusicApi",
         "sanitize-filename": "^1.6.3",
         "volume_supervisor": "^1.0.1"
     },
