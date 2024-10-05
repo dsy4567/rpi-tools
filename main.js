@@ -5,7 +5,7 @@ if (process.platform != "linux")
 
 const { appRootPath, logger, execFile } = require("./modules/utils");
 const { log, error, warn } = logger("main");
-const { priority } = require("./modules/config");
+const { priority, handleUncaughtException } = require("./modules/config");
 
 function init() {
     execFile("sudo", ["renice", "" + priority, "" + process.pid]);

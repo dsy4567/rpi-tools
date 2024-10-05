@@ -255,75 +255,79 @@ if (enableMprisService) {
         execFile("mpris-proxy", [])
             .then(() => {})
             .catch(e => {
-                error(e);
+                error("无法启动 mpris-proxy", e);
             });
     }
 
     setTimeout(() => {
-        const MprisPlayer = require("@jellybrick/mpris-service");
-        mprisService = new MprisPlayer({
-            name: "dsy4567.rpi-tools.player",
-            identity: "dsy4567.rpi-tools.player",
-        });
-        [
-            // "raise",
-            // "quit",
-            "next",
-            "previous",
-            "pause",
-            "playpause",
-            // "stop",
-            "play",
-            // "seek",
-            // "position",
-            // "open",
-            // "volume",
-            // "loopStatus",
-            // "shuffle",
-        ].forEach(ev => {
-            mprisService.on(ev, () => {
-                // 蓝牙耳机按钮
-                switch (ev) {
-                    // 播放暂停按钮
-                    case "play":
-                    case "pause":
-                    case "playpause":
-                        if (isMainMenu()) {
-                            activeMenu(" "); // 播放/暂停
-                        } else {
-                            activeMenu("\r"); // 选择当前菜单项
-                        }
-
-                        break;
-                    case "next": // 下一曲按钮
-                        if (isMainMenu()) {
-                            if (playerStatus.playing) {
-                                activeMenu("n"); // 下一曲
-                            } else {
-                                activeMenu("M"); // 快捷菜单
-                            }
-                        } else {
-                            activeMenu("n"); // 下一个菜单项
-                        }
-
-                        break;
-                    case "previous": // 上一曲按钮
-                        if (isMainMenu()) {
-                            if (playerStatus.playing) {
-                                activeMenu("M"); // 快捷菜单
-                            } else {
-                                activeMenu("b"); // 上一曲
-                            }
-                        } else {
-                            activeMenu("b"); // 上一个菜单项
-                        }
-                        break;
-
-                    default:
-                        break;
-                }
+        try {
+            const MprisPlayer = require("@jellybrick/mpris-service");
+            mprisService = new MprisPlayer({
+                name: "dsy4567.rpi-tools.player",
+                identity: "dsy4567.rpi-tools.player",
             });
-        });
+            [
+                // "raise",
+                // "quit",
+                "next",
+                "previous",
+                "pause",
+                "playpause",
+                // "stop",
+                "play",
+                // "seek",
+                // "position",
+                // "open",
+                // "volume",
+                // "loopStatus",
+                // "shuffle",
+            ].forEach(ev => {
+                mprisService.on(ev, () => {
+                    // 蓝牙耳机按钮
+                    switch (ev) {
+                        // 播放暂停按钮
+                        case "play":
+                        case "pause":
+                        case "playpause":
+                            if (isMainMenu()) {
+                                activeMenu(" "); // 播放/暂停
+                            } else {
+                                activeMenu("\r"); // 选择当前菜单项
+                            }
+
+                            break;
+                        case "next": // 下一曲按钮
+                            if (isMainMenu()) {
+                                if (playerStatus.playing) {
+                                    activeMenu("n"); // 下一曲
+                                } else {
+                                    activeMenu("M"); // 快捷菜单
+                                }
+                            } else {
+                                activeMenu("n"); // 下一个菜单项
+                            }
+
+                            break;
+                        case "previous": // 上一曲按钮
+                            if (isMainMenu()) {
+                                if (playerStatus.playing) {
+                                    activeMenu("M"); // 快捷菜单
+                                } else {
+                                    activeMenu("b"); // 上一曲
+                                }
+                            } else {
+                                activeMenu("b"); // 上一个菜单项
+                            }
+                            break;
+
+                        default:
+                            break;
+                    }
+                });
+            });
+        } catch (e) {
+            error("无法初始化 mpris 服务", e);
+        }
     }, 5000);
 }
 
