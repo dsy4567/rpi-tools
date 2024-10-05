@@ -24,7 +24,7 @@
 
 ## 🛠 安装
 
-> **Warning**: rpi-tools 仅可在 Linux 平台安装和运行，如需在 Windows 进行开发，请在 Linux 安装依赖后使用文件夹映射，或使用 WSL
+> rpi-tools 仅可在 Linux 平台安装和运行，如需在 Windows 进行开发，请使用 WSL，或在 Linux 安装依赖后使用文件夹映射
 
 -   下载源码，安装依赖
 
@@ -35,11 +35,11 @@
     sudo apt install moc cpufrequtils ffmpeg screen
     # 安装最新版的 nodejs
     curl -fsSL https://www.unpkg.com/n/bin/n | bash -s latest
-    # 这里建议重启 shell
+    npm i -g pnpm
 
     git clone https://github.com/dsy4567/rpi-tools
     cd rpi-tools
-    npm i
+    pnpm i
     ```
 
 -   配置 sudo 免密（用于关机重启、设置进程优先级、使用 `rpicam` 拍照）
