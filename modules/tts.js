@@ -11,7 +11,8 @@ let /** @type {cp.ChildProcess} */ p, /** @type {NodeJS.Timeout} */ timeout;
 module.exports = {
     tts(/** @type {String} */ t, echo = true) {
         if (!t) return t;
-        echo && log((t = t.replaceAll(/[0-9]+/g, ".$&")));
+        echo && log(t);
+        t = t.replaceAll(".", "点").replaceAll(/[0-9]+/g, ".$&");
         clearTimeout(timeout);
         timeout = setTimeout(() => {
             try {

@@ -2,7 +2,7 @@
 cd `dirname $0`
 exitCode=0
 timeout=5
-rm ./data/musics/fallbackPlaylist.pls
+rm ./data/musics/fallbackPlaylist.pls > /dev/null
 for i in {1..3}
 do
     node ./main.js from-run-sh $@

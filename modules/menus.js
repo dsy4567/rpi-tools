@@ -52,8 +52,8 @@ function addMenuItems(
 function activeMenu(/** @type {String} */ key) {
     if (!key) return;
 
-    if (key == "\x1B") return popMenuState(); // Esc TODO: 有点慢
-    if (key == "\x03") return process.exit(0); // Ctrl^C
+    if (key == "\x1B" || key == "\x1B[3~") return popMenuState(); // Esc Del
+    if (key == "\x03") return process.exit(0); // Ctrl+C
 
     resetPopMenuStateTimeout();
 
@@ -99,7 +99,6 @@ async function chooseItem(
 }
 
 const quickMenus = {
-    // TODO: 在这里显示歌曲名
     喜欢: "l",
     上下一曲: { 上一曲: "b", 下一曲: "n" },
     "网易云音乐-更多选项": {

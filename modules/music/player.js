@@ -80,7 +80,7 @@ async function switchPlaylist(
     musicPaths = tempMusicPaths;
     musicPathsIndex = tempMusicPathsIndex;
     controlledByUser = _controlledByUser;
-    setPlayMode();
+    pl == "日推" ? setPlayMode("autonext", true) : setPlayMode(undefined, true);
     await updatePlayerStatus(
         null,
         !controlledByUser,
@@ -90,6 +90,14 @@ async function switchPlaylist(
     currentPlaylist = pl;
     musicPaths[0] && mpgPlayer.play(musicPaths[0]);
 
+    musicPathsIndex = 0;
+    for (let i = 0; i < musicPaths.length; i++) {
+        if (musicPaths[i] == playerStatus.path) {
+            musicPathsIndex = i;
+            break;
+        }
+    }
+
     fs.writeFile(
         path.join(appRootPath.get(), "data/fallbackPlaylist.pls"),
         musicPaths.map(p => path.basename(p)).join("\n"),
@@ -98,9 +106,9 @@ async function switchPlaylist(
         }
     );
 }
-// TODO: 日推默认顺序播放，切换播放模式后修正 index
 function setPlayMode(
-    /** @type { import(".").PlayMode } */ mode = currentPlayMode
+    /** @type { import(".").PlayMode } */ mode = currentPlayMode,
+    noResetIndex = false
 ) {
     switch (mode) {
         case "autonext":
@@ -114,6 +122,15 @@ function setPlayMode(
 
         default:
             return;
+    }
+    if (!noResetIndex) {
+        musicPathsIndex = 0;
+        for (let i = 0; i < musicPaths.length; i++) {
+            if (musicPaths[i] == playerStatus.path) {
+                musicPathsIndex = i;
+                break;
+            }
+        }
     }
     currentPlayMode = mode;
 }
@@ -220,7 +237,6 @@ let /** @type { "autonext" | "shuffle" | "repeat" } */ currentPlayMode =
 let controlledByUser = false;
 
 let mprisService;
-
 mpgPlayer.on("pause", e => {
     log("暂停");
     updatePlayerStatus(false);
@@ -335,7 +351,8 @@ addMenuItems("主页", {
     l: async k => {
         ncm.like(playerStatus.songId);
     },
-    D: async k => {
+    D: async k => {},
+    d: async k => {
         const opinions = [
             "下载单曲",
             "下载歌单",
@@ -393,7 +410,7 @@ addMenuItems("主页", {
     i: async k => {
         try {
             tts(
-                `${playerStatus.songName}, 由 ${
+                `${playerStatus.songName || "未知"}, 由 ${
                     (playerStatus.song?.artists.map(ar => ar.name) || []).join(
                         "、"
                     ) || "未知"
@@ -491,7 +508,8 @@ ncm.playlistEmitter.on("addSong", data => {
         originalMusicPaths.push(data.song.path);
     } else if (
         data.playlist &&
-        currentNcmPlaylist?.pid === data.playlist?.pid
+        currentNcmPlaylist?.pid === data.playlist?.pid &&
+        !musicPaths.includes(data.song.path)
     ) {
         musicPaths.push(data.song.path);
         originalMusicPaths.push(data.song.path);

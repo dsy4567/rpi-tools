@@ -41,6 +41,7 @@ menus.addMenuItems("音量调节", {
 setInterval(async () => {
     try {
         if ((await vc.getGlobalVolume()) >= 100) addVol();
+        vol = await vc.getGlobalVolume();
     } catch (e) {}
 }, 5000);
 

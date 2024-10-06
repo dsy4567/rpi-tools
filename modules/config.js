@@ -15,7 +15,6 @@ try {
     error("无法加载自定义配置", e);
 }
 
-// TODO: 注意在其他文件处理配置为空的情况
 const defaultConfig = {
     /** 默认播放模式 @type { import("./music/index").PlayMode } */
     defaultPlayMode: "shuffle",
@@ -36,7 +35,7 @@ const defaultConfig = {
     /** 音乐下载失败时（可能触发反爬）的重试间隔，单位毫秒 */
     ncmRetryTimeout: [60 * 1000, 3 * 60 * 1000, 5 * 60 * 1000],
     /** 自动签到 */
-    ncmDailySignin: true,
+    ncmDailyCheckIn: true,
     /** 进程优先级 */
     priority: -7,
     // TODO: 增加限制
@@ -50,5 +49,12 @@ const defaultConfig = {
     },
 };
 module.exports = Object.assign(defaultConfig, userConfig);
+
+typeof module.exports.jsonfileOptions !== "object" &&
+    (module.exports.jsonfileOptions = {});
+!Array.isArray(module.exports.ncmRetryTimeout) &&
+    (module.exports.ncmRetryTimeout = []);
+typeof module.exports.writeFileOptions !== "object" &&
+    (module.exports.writeFileOptions = {});
 
 log("当前配置", module.exports);
