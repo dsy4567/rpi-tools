@@ -5,13 +5,17 @@ const vc = require("volume_supervisor").volumeControl;
 const menus = require("./menus");
 const tts = require("./tts").tts;
 
-let vol = 30;
+let vol = 30,
+    autoSetVolCb = () => {};
 
 function addVol(add = 0) {
     vol += add;
     if (vol > 100) vol = 100;
     if (vol < 0) vol = 0;
     vc.setGlobalVolume(vol);
+}
+function autoSetVol(/** @type {(vol: Number) => void} */ cb) {
+    autoSetVolCb = cb;
 }
 
 menus.addMenuItems("主页", {
@@ -44,13 +48,14 @@ setInterval(async () => {
         if (vol >= 100) {
             vol = 30;
             addVol();
-        } else if (vol <= 3) menus.activeMenu("_player.setVolTo15");
-        else if (vol <= 6) menus.activeMenu("_player.setVolTo30");
-        else if (vol <= 9) menus.activeMenu("_player.setVolTo60");
-        else menus.activeMenu("_player.setVolTo100");
+        } else if (vol <= 3) autoSetVolCb(15);
+        else if (vol <= 6) autoSetVolCb(30);
+        else if (vol <= 9) autoSetVolCb(60);
+        else autoSetVolCb(100);
     } catch (e) {}
 }, 5000);
 
 module.exports = {
     addVol,
+    autoSetVol,
 };

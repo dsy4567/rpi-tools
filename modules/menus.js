@@ -14,7 +14,7 @@ function pushMenuState(/** @type {String} */ s, _disableHelp = false) {
     log("menuState:", s);
     tts(s);
     menuStates.push(s);
-    resetPopMenuStateTimeout();
+    (!s.startsWith("_") || s === "_") && resetPopMenuStateTimeout();
 }
 function popMenuState(_disableHelp = false) {
     disableHelp = _disableHelp;
@@ -25,12 +25,10 @@ function popMenuState(_disableHelp = false) {
     resetPopMenuStateTimeout();
 }
 function resetPopMenuStateTimeout() {
-    popMenuStateTimeout =
-        popMenuStateTimeout ||
-        setTimeout(() => {
-            if (getMenuState() !== "主页") popMenuState();
-        }, 15000);
-    popMenuStateTimeout.refresh();
+    clearTimeout(popMenuStateTimeout);
+    popMenuStateTimeout = setTimeout(() => {
+        if (getMenuState() !== "主页") popMenuState();
+    }, 15000);
 }
 function getMenuState() {
     return menuStates.at(-1) || "主页";
@@ -55,7 +53,7 @@ function activeMenu(/** @type {String} */ key) {
     if (key == "\x1B" || key == "\x1B[3~") return popMenuState(); // Esc Del
     if (key == "\x03") return process.exit(0); // Ctrl+C
 
-    resetPopMenuStateTimeout();
+    (!key.startsWith("_") || key === "_") && resetPopMenuStateTimeout();
 
     const menu = menus[getMenuState()],
         f = menu?.[key];

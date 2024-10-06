@@ -20,6 +20,7 @@ const {
 const lyric = require("./lyric");
 const ncm = require("./ncm");
 const tts = require("../tts").tts;
+const { autoSetVol } = require("../vol");
 const { logger, shuffle, appRootPath, execFile } = require("../utils");
 const { log, error, warn } = logger("播放器");
 
@@ -520,32 +521,6 @@ addMenuItems("主页", {
     9: k => {
         switchPlaylist(k);
     },
-    "_player.setVolTo100": k => {
-        mpgPlayer.volume(100);
-    },
-    "_player.setVolTo60": k => {
-        mpgPlayer.volume(60);
-    },
-    "_player.setVolTo30": k => {
-        mpgPlayer.volume(30);
-    },
-    "_player.setVolTo15": k => {
-        mpgPlayer.volume(15);
-    },
-});
-addMenuItems("音量调节", {
-    "_player.setVolTo100": k => {
-        mpgPlayer.volume(100);
-    },
-    "_player.setVolTo60": k => {
-        mpgPlayer.volume(60);
-    },
-    "_player.setVolTo30": k => {
-        mpgPlayer.volume(30);
-    },
-    "_player.setVolTo15": k => {
-        mpgPlayer.volume(15);
-    },
 });
 
 ncm.playlistEmitter.on("addSong", data => {
@@ -565,6 +540,7 @@ ncm.playlistEmitter.on("addSong", data => {
 
 setPlayMode(defaultPlayMode);
 switchPlaylist(0, false);
+autoSetVol(mpg123.volume);
 
 module.exports = {
     mprisService,
