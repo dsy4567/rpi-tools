@@ -183,7 +183,7 @@ const quickMenus = {
                 cp.execSync("sudo shutdown 40");
             },
             关机: () => {
-                cp.execSync("sudo shutdownn 0");
+                cp.execSync("sudo shutdown 0");
             },
             重启: () => {
                 cp.execSync("sudo reboot");
