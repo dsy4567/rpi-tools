@@ -47,7 +47,7 @@ async function ncmStatusCheck(
         await initNcmApi();
         const resp = await res;
         if (resp.body.code === 200 || resp.body.status === 200) return resp;
-        throw new Error("" + resp);
+        throw new Error("API 状态码异常" + resp);
     } catch (e) {
         throw e;
     }
