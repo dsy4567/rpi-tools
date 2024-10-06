@@ -17,6 +17,7 @@ const {
     activeMenu,
     isMainMenu,
 } = require("../menus");
+const lyric = require("./lyric");
 const ncm = require("./ncm");
 const tts = require("../tts").tts;
 const { logger, shuffle, appRootPath, execFile } = require("../utils");
@@ -248,6 +249,7 @@ let mprisService;
 mpgPlayer.on("pause", e => {
     log("暂停");
     updatePlayerStatus(false);
+    lyric.pause();
 });
 mpgPlayer.on("end", async e => {
     log("结束");
@@ -258,10 +260,16 @@ mpgPlayer.on("end", async e => {
             mpgPlayer.play(p);
         }
     } else next(false);
+    lyric.hideLyric();
 });
 mpgPlayer.on("resume", e => {
     log("播放");
     updatePlayerStatus(true);
+    lyric.showLyric(
+        playerStatus.songId,
+        playerStatus.currentSec * 1000,
+        getCurrentProgressSec
+    );
 });
 mpgPlayer.on("error", e => {
     if (("" + e).includes("No stream opened")) return;
@@ -272,6 +280,7 @@ mpgPlayer.on("error", e => {
         playerStatus.song.downloaded = false;
     ncm.updatePlaylistFile();
     updatePlayerStatus(false);
+    lyric.hideLyric();
 });
 
 if (enableMprisService) {

@@ -1021,12 +1021,43 @@ async function search() {
             });
     });
 }
+async function getLyricText(id) {
+    if (!id || isNaN(+id)) return "";
+
+    try {
+        const lrcPath = path.join(
+            appRootPath.get(),
+            "./data/lyrics/",
+            id + ".lrc"
+        );
+        if (fs.existsSync(lrcPath))
+            return (await fs.promises.readFile(lrcPath)).toString();
+        else {
+            await initNcmApi();
+            const lrcText =
+                (
+                    await ncmStatusCheck(
+                        ncmApi.lyric({ id, cookie: loginStatus.cookie })
+                    )
+                ).body?.lrc?.lyric || "";
+            if (!lrcText) return "";
+
+            fs.mkdirSync(path.join(appRootPath.get(), "data/lyrics/"), {
+                recursive: true,
+            });
+            fs.promises.writeFile(lrcPath, lrcText, writeFileOptions);
+            return lrcText;
+        }
+    } catch (e) {
+        warn("无法获取歌词", e);
+        return "";
+    }
+}
 
 const playlistPath = path.join(appRootPath.get(), "data/ncmPlaylist.json");
 
-class PlaylistEmitter extends EventEmitter {}
 const /** @type {import(".").PlaylistEmitterT} */ playlistEmitter =
-        new PlaylistEmitter();
+        new EventEmitter();
 
 let downloading = false,
     /** @type {NodeJS.Timeout} */ clearRetrySleeper,
@@ -1109,4 +1140,5 @@ module.exports = {
     like,
     search,
     playlistEmitter,
+    getLyricText,
 };

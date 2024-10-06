@@ -2,9 +2,13 @@
 
 const clc = require("cli-color");
 const cp = require("child_process");
+const { EventEmitter } = require("events");
 const fs = require("graceful-fs");
 const path = require("path");
 const sf = require("sanitize-filename");
+
+const /** @type {import("./index").LoggerEmitterT} */ loggerEmitter =
+        new EventEmitter();
 
 const D = new Date();
 let unwrittenLogs = "",
@@ -22,6 +26,8 @@ function log(
         warn: "yellowBright",
         error: "redBright",
     };
+
+    process.stdout._betterClearLine();
     console[type]?.(
         clc[colors[type] || "greenBright"](`${type[0].toUpperCase()}:`),
         clc.cyanBright.cyan(`[${moduleName}]`),
@@ -73,7 +79,27 @@ function log(
                 }] 已退出, 代码: ${code}\n`;
                 f();
             }));
+
+    loggerEmitter.emit("afterLog", {});
 }
+
+const statusBar = {
+    show() {},
+    hide() {},
+    setText(text) {},
+};
+
+process.stdout._betterWrite = (data, wholeLine = true) => {
+    if (wholeLine) process.stdout._betterClearLine();
+    process.stdout._curPos += Buffer.from(data).length;
+    process.stdout.write(data);
+};
+process.stdout._betterClearLine = () => {
+    process.stdout.cursorTo(0);
+    process.stdout.write(" ".repeat(process.stdout._curPos));
+    process.stdout.cursorTo(0);
+    process.stdout._curPos = 0;
+};
 
 module.exports = {
     appRootPath: {
@@ -113,6 +139,7 @@ module.exports = {
             warn(...args) {
                 log("warn", moduleName, ...args);
             },
+            emitter: loggerEmitter,
         };
     },
     async sleep(t, cb) {

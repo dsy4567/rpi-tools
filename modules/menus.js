@@ -7,7 +7,7 @@ const readline = require("readline");
 const { rpicam, setPowerMode } = require("./toolkit");
 const { tts } = require("./tts");
 const { logger } = require("./utils");
-const { log, error, warn } = logger("menus");
+const { log, error, warn, emitter } = logger("menus");
 
 function pushMenuState(/** @type {String} */ s, _disableHelp = false) {
     disableHelp = _disableHelp;
@@ -69,13 +69,17 @@ function activeMenu(/** @type {String} */ key) {
         tts("操作失败");
     }
 }
+function rePrintInputPrompt(params) {
+    process.stdout._betterWrite(`${inpPrompt}> ${inpStr}`);
+}
 async function input(/** @type {String} */ prompt) {
     return new Promise((resolve, reject) => {
         pushMenuState("input", true);
         inpStr = "";
         tts(prompt, false);
         inpCb = resolve;
-        process.stdout.write(`${(inpPrompt = prompt)}> ${inpStr}`);
+        inpPrompt = prompt;
+        rePrintInputPrompt();
     });
 }
 /** @returns {Promise<String>} */
@@ -97,6 +101,16 @@ async function chooseItem(
         itemChooserCb = resolve;
     });
 }
+
+const statusBar = {
+    rePrint() {
+        process.stdout._betterWrite(statusBarText);
+    },
+    setText(text = "") {
+        statusBarText = text;
+        this.rePrint();
+    },
+};
 
 const quickMenus = {
     添加到: "l",
@@ -188,6 +202,7 @@ const quickMenus = {
 let inpStr = "",
     inpPrompt = "",
     inpCb = s => {};
+let statusBarText = "";
 let /** @type {Record<String, {selectedIndex: Number, items: String[]}>} */ itemChooserStates =
         {},
     currentItemChooser = "",
@@ -258,12 +273,12 @@ let menus = {
             inpStr = inpStr.substring(0, inpStr.length - 1);
             process.stdout.clearLine(0);
             process.stdout.cursorTo(0);
-            process.stdout.write(`${inpPrompt}> ${inpStr}`);
+            rePrintInputPrompt();
         },
         default: k => {
             if (/[\S ]/g.test(k) && !/[\x00-\x1f\x7f]/g.test(k)) {
                 inpStr += k;
-                process.stdout.write(k);
+                process.stdout._betterWrite(k, false);
             }
         },
     },
@@ -308,6 +323,10 @@ if (process.stdin.isTTY) {
             }, 10);
         }
     });
+    emitter.on("afterLog", () => {
+        if (getMenuState() === "input") rePrintInputPrompt();
+        else statusBar.rePrint();
+    });
 }
 
 module.exports = {
@@ -320,4 +339,5 @@ module.exports = {
     input,
     isMainMenu,
     activeMenu,
+    statusBar,
 };
