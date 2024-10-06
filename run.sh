@@ -7,13 +7,14 @@ for i in {1..3}
 do
     node ./main.js from-run-sh $@
     exitCode=$?
-    if [ $exitCode -eq 0 ];
+    if [ $exitCode -eq 0 -o $exitCode -eq 143 ];
     then
         exit 0
     fi
     echo "程序意外退出, 返回代码: "$exitCode", 将在 "$timeout" 秒后再次尝试启动, 第 "$i" 次重试"
     espeak -v zh "程序意外退出-返回代码-"$exitCode"-将在"$timeout"秒后再次尝试启动-第"$i"次重试"
     sleep 5
+    kill $(cat /tmp/.rpi-tools-lockfile)
 done
 echo "重试次数过多, 尝试使用moc播放上一次播放列表"
 espeak -v zh "重试次数过多-尝试使用moc播放上一次播放列表"
