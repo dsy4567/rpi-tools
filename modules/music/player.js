@@ -97,7 +97,7 @@ async function switchPlaylist(
     );
     currentNcmPlaylist = tempCurrentNcmPlaylist;
     currentPlaylist = pl;
-    musicPaths[0] && mpgPlayer.play(musicPaths[0]);
+    musicPaths[0] && !errorCaught && mpgPlayer.play(musicPaths[0]);
 
     musicPathsIndex = 0;
     for (let i = 0; i < musicPaths.length; i++) {
@@ -207,7 +207,7 @@ async function previous() {
     const p = musicPaths[musicPathsIndex];
     if (p) {
         await updatePlayerStatus(false, false, p);
-        mpgPlayer.play(musicPaths[musicPathsIndex]);
+        !errorCaught && mpgPlayer.play(musicPaths[musicPathsIndex]);
     }
 }
 async function next(_controlledByUser = true) {
@@ -220,7 +220,7 @@ async function next(_controlledByUser = true) {
     const p = musicPaths[musicPathsIndex];
     if (p) {
         await updatePlayerStatus(false, !controlledByUser, p);
-        mpgPlayer.play(musicPaths[musicPathsIndex]);
+        !errorCaught && mpgPlayer.play(musicPaths[musicPathsIndex]);
     }
 }
 
@@ -243,7 +243,8 @@ let /** @type { "autonext" | "shuffle" | "repeat" } */ currentPlayMode =
         currentSec: 0,
     },
     musicPathsIndex = 0;
-let controlledByUser = false;
+let controlledByUser = false,
+    errorCaught = false;
 
 let mprisService;
 mpgPlayer.on("pause", e => {
@@ -257,9 +258,9 @@ mpgPlayer.on("end", async e => {
         const p = musicPaths[musicPathsIndex];
         if (p) {
             await updatePlayerStatus(false, true, p);
-            mpgPlayer.play(p);
+            !errorCaught && mpgPlayer.play(p);
         }
-    } else next(false);
+    } else !errorCaught && next(false);
     lyric.hideLyric();
 });
 mpgPlayer.on("resume", e => {
@@ -274,6 +275,7 @@ mpgPlayer.on("resume", e => {
 mpgPlayer.on("error", e => {
     if (("" + e).includes("No stream opened")) return;
     error(tts("播放失败: " + playerStatus.songName, false), e);
+    errorCaught = true;
     if (currentPlayMode === "repeat") currentPlayMode = "autonext";
     playerStatus.song?.errors.push("" + e);
     if (!fs.existsSync(playerStatus.path) && playerStatus.song)
@@ -473,10 +475,12 @@ addMenuItems("主页", {
     },
     b: k => {
         controlledByUser = true;
+        errorCaught = false;
         previous();
     },
     n: k => {
         controlledByUser = true;
+        errorCaught = false;
         next();
     },
     " ": k => {
@@ -515,6 +519,20 @@ addMenuItems("主页", {
     },
     9: k => {
         switchPlaylist(k);
+    },
+    "_player.setVolTo100": k => {
+        mpgPlayer.volume(100);
+    },
+    "_player.setVolTo15": k => {
+        mpgPlayer.volume(15);
+    },
+});
+addMenuItems("音量调节", {
+    "_player.setVolTo100": k => {
+        mpgPlayer.volume(100);
+    },
+    "_player.setVolTo15": k => {
+        mpgPlayer.volume(15);
     },
 });
 

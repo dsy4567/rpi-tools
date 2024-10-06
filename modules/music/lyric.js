@@ -38,7 +38,9 @@ async function showLyric(id, currentSecOffset = 0, getCurrentSec) {
                 if (l.type === "lyric" && currentMilSec >= l.startMillisecond)
                     if (
                         currentMilSec <=
-                        (lrc[i + 1]?.startMillisecond || 1145141919810)
+                            (lrc[i + 1]?.startMillisecond || 1145141919810) &&
+                        lrc[i]?.startMillisecond !==
+                            lrc[i + 1]?.startMillisecond
                     )
                         break;
                     else continue;
@@ -47,7 +49,7 @@ async function showLyric(id, currentSecOffset = 0, getCurrentSec) {
             const lText = l?.content || "";
             lastLText != lText &&
                 menus.getMenuState() !== "input" &&
-                menus.statusBar.setText("🎵 " + lText);
+                menus.statusBar.setText("🎵 " + (lastLText = lText));
         }, 100);
         currentMilSecInterval = setInterval(async () => {
             try {
@@ -60,6 +62,11 @@ async function showLyric(id, currentSecOffset = 0, getCurrentSec) {
                 error(e);
             }
         }, 5000);
+        menus.addMenuItems("主页", {
+            "_lyric.print": k => {
+                tts(lastLText);
+            },
+        });
     } catch (e) {
         error("无法展示歌词", e);
     }

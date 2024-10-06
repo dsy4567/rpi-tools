@@ -124,6 +124,7 @@ const quickMenus = {
         },
         歌曲信息: "i",
         更新播放列表: "U",
+        歌词: "_lyric.print",
         更多: {
             更新登录信息: "_ncm.loginAgain",
             备份播放列表: "_ncm.backupPlaylistFile",

@@ -40,8 +40,12 @@ menus.addMenuItems("音量调节", {
 
 setInterval(async () => {
     try {
-        if ((await vc.getGlobalVolume()) >= 100) addVol();
         vol = await vc.getGlobalVolume();
+        if (vol >= 100) {
+            vol = 30;
+            addVol();
+        } else if (vol <= 8) menus.activeMenu("_player.setVolTo15");
+        else menus.activeMenu("_player.setVolTo100");
     } catch (e) {}
 }, 5000);
 
