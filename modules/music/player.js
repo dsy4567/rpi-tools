@@ -368,8 +368,7 @@ addMenuItems("主页", {
     l: async k => {
         ncm.like(playerStatus.songId);
     },
-    D: async k => {},
-    d: async k => {
+    D: async k => {
         const opinions = [
             "下载单曲",
             "下载歌单",

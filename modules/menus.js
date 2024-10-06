@@ -139,21 +139,6 @@ const quickMenus = {
             let netQuality = "无网络或网络极差";
             let timeUsed = -1;
             try {
-                tts(
-                    `IP 地址: ${
-                        cp
-                            .execSync("hostname -I")
-                            .toString()
-                            .trim()
-                            .replaceAll(".", "点")
-                            .replaceAll(":", "冒号")
-                            .replaceAll(" ", " 和 ") || "无网络或未知"
-                    }`
-                );
-            } catch (e) {
-                tts("操作失败");
-            }
-            try {
                 const D = new Date();
                 await axios.get("https://music.163.com/?t=" + +D, {
                     timeout: 25000,
@@ -175,7 +160,21 @@ const quickMenus = {
             } catch (e) {
                 netQuality = "无网络或网络极差";
             }
-            tts(`网络质量: ${netQuality}`);
+            try {
+                tts(
+                    `网络质量: ${netQuality} IP 地址: ${
+                        cp
+                            .execSync("hostname -I")
+                            .toString()
+                            .trim()
+                            .replaceAll(".", "点")
+                            .replaceAll(":", "冒号")
+                            .replaceAll(" ", " 和 ") || "无网络或未知"
+                    }`
+                );
+            } catch (e) {
+                tts("操作失败");
+            }
         },
         电源: {
             定时关机: () => {

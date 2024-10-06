@@ -26,7 +26,8 @@ async function showLyric(id, currentSecOffset = 0, getCurrentSec) {
             currentMilSec = 0;
         pause();
         if (!lrc[0]) return menus.statusBar.setText("");
-        let D = new Date();
+        let D = new Date(),
+            lastLText = "";
         lrcInterval = setInterval(async () => {
             let /** @type {ReturnType<import("clrc").parse>[0]} */ l;
             currentMilSec = new Date() - D + currentSecOffset;
@@ -43,7 +44,10 @@ async function showLyric(id, currentSecOffset = 0, getCurrentSec) {
                     else continue;
                 else continue;
             }
-            menus.statusBar.setText("🎵 " + l?.content || "");
+            const lText = l?.content || "";
+            lastLText != lText &&
+                menus.getMenuState() !== "input" &&
+                menus.statusBar.setText("🎵 " + lText);
         }, 100);
         currentMilSecInterval = setInterval(async () => {
             try {
