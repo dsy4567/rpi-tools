@@ -99,7 +99,7 @@ async function chooseItem(
 }
 
 const quickMenus = {
-    喜欢: "l",
+    添加到: "l",
     上下一曲: { 上一曲: "b", 下一曲: "n" },
     "网易云音乐-更多选项": {
         选择播放列表: "p",
@@ -110,9 +110,11 @@ const quickMenus = {
         },
         歌曲信息: "i",
         更新播放列表: "U",
-        更新登录信息: "_ncm.loginAgain",
-        备份播放列表: "_ncm.backupPlaylistFile",
-        删除播放列表: "_ncm.removePlaylist",
+        更多: {
+            更新登录信息: "_ncm.loginAgain",
+            备份播放列表: "_ncm.backupPlaylistFile",
+            删除播放列表: "_ncm.removePlaylist",
+        },
         取消全部下载任务: "_ncm.cancelDownloading",
     },
     更多选项: {
@@ -161,21 +163,23 @@ const quickMenus = {
             }
             tts(`网络质量: ${netQuality}`);
         },
-        定时关机: () => {
-            cp.execSync("sudo shutdown 40");
+        电源: {
+            定时关机: () => {
+                cp.execSync("sudo shutdown 40");
+            },
+            取消定时关机: () => {
+                cp.execSync("sudo shutdown 40");
+            },
+            关机: () => {
+                cp.execSync("sudo shutdownn 0");
+            },
+            重启: () => {
+                cp.execSync("sudo reboot");
+            },
         },
-        取消定时关机: () => {
-            cp.execSync("sudo shutdown 40");
-        },
-        关机: () => {
-            cp.execSync("sudo shutdown 0");
-        },
-        重启: () => {
-            cp.execSync("sudo reboot");
-        },
-        电源选项: async () => {
+        性能选项: async () => {
             setPowerMode(
-                await chooseItem("电源选项", ["省电", "平衡", "性能"])
+                await chooseItem("性能选项", ["省电", "平衡", "性能"])
             );
         },
     },
@@ -233,7 +237,7 @@ let menus = {
         },
         p: async k => {
             setPowerMode(
-                await chooseItem("电源选项", ["省电", "平衡", "性能"])
+                await chooseItem("性能选项", ["省电", "平衡", "性能"])
             );
         },
     },

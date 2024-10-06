@@ -26,7 +26,6 @@
         "axios": "^1.7.4",
         "cli-color": "^2.0.4",
         "cookie": "^0.6.0",
-        "dlnacasts2": "^0.2.0",
         "find-process": "^1.4.7",
         "graceful-fs": "^4.2.11",
         "http-server": "^14.1.1",

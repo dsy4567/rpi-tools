@@ -38,7 +38,7 @@ async function setPowerMode(/** @type {"省电" | "平衡" | "性能"} */ m) {
         execFile("sudo", ["cpufreq-set", "-g", mode])
             .then(() => {})
             .catch(e => {
-                error(tts("无法更改电源选项", false), e);
+                error(tts("无法更改性能选项", false), e);
             });
 }
 

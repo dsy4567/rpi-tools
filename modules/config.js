@@ -38,9 +38,6 @@ const defaultConfig = {
     ncmDailyCheckIn: true,
     /** 进程优先级 */
     priority: -7,
-    // TODO: 增加限制
-    /** 下载播放列表时的歌曲数限制 */
-    playlistLimit: 300,
     /** espeak 语言 */
     TTSEspeakLanguage: "zh",
     /** fs 包写入文件的选项 @type {import("fs").WriteFileOptions} */

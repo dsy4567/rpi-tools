@@ -61,17 +61,25 @@ async function switchPlaylist(
             return;
         }
     } else {
+        let count = 0;
         tempCurrentNcmPlaylist = playlists[pl];
         playlists[pl].songs.forEach(id => {
-            if (playlistFile.songs[id]?.errors.length >= 1)
-                return warn("文件已损坏:", playlistFile.songs[id].path);
-            if (playlistFile.songs[id]?.downloaded === false)
-                return warn("文件不存在:", playlistFile.songs[id].path);
+            if (playlistFile.songs[id]?.errors.length >= 1) {
+                ++count <= 10 &&
+                    warn("文件已损坏:", playlistFile.songs[id].path);
+                return;
+            }
+            if (playlistFile.songs[id]?.downloaded === false) {
+                ++count <= 10 &&
+                    warn("文件不存在:", playlistFile.songs[id].path);
+                return;
+            }
             const p = playlistFile.songs[id]?.path;
             if (!p) return;
             tempOriginalMusicPaths.push(p);
             tempMusicPaths.push(p);
         });
+        if (count > 5) warn("更多文件已损坏或不存在");
     }
     if (!tempMusicPaths[0]) {
         return tts("歌单为空");
