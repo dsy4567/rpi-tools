@@ -44,7 +44,9 @@ setInterval(async () => {
         if (vol >= 100) {
             vol = 30;
             addVol();
-        } else if (vol <= 8) menus.activeMenu("_player.setVolTo15");
+        } else if (vol <= 3) menus.activeMenu("_player.setVolTo15");
+        else if (vol <= 6) menus.activeMenu("_player.setVolTo30");
+        else if (vol <= 9) menus.activeMenu("_player.setVolTo60");
         else menus.activeMenu("_player.setVolTo100");
     } catch (e) {}
 }, 5000);

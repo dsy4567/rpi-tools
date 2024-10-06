@@ -523,6 +523,12 @@ addMenuItems("主页", {
     "_player.setVolTo100": k => {
         mpgPlayer.volume(100);
     },
+    "_player.setVolTo60": k => {
+        mpgPlayer.volume(60);
+    },
+    "_player.setVolTo30": k => {
+        mpgPlayer.volume(30);
+    },
     "_player.setVolTo15": k => {
         mpgPlayer.volume(15);
     },
@@ -530,6 +536,12 @@ addMenuItems("主页", {
 addMenuItems("音量调节", {
     "_player.setVolTo100": k => {
         mpgPlayer.volume(100);
+    },
+    "_player.setVolTo60": k => {
+        mpgPlayer.volume(60);
+    },
+    "_player.setVolTo30": k => {
+        mpgPlayer.volume(30);
     },
     "_player.setVolTo15": k => {
         mpgPlayer.volume(15);
