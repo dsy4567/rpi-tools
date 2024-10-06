@@ -540,7 +540,9 @@ ncm.playlistEmitter.on("addSong", data => {
 
 setPlayMode(defaultPlayMode);
 switchPlaylist(0, false);
-autoSetVol(mpg123.volume);
+autoSetVol(v => {
+    mpgPlayer.volume(v);
+});
 
 module.exports = {
     mprisService,

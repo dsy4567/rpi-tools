@@ -15,6 +15,7 @@ function addVol(add = 0) {
     vc.setGlobalVolume(vol);
 }
 function autoSetVol(/** @type {(vol: Number) => void} */ cb) {
+    if (typeof cb !== "function") return;
     autoSetVolCb = cb;
 }
 
