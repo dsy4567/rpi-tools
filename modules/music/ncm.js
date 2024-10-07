@@ -486,9 +486,7 @@ async function downloadSong(
                                 name: m.name,
                                 sid: m.id,
                                 path: musicPath,
-                                errors: tempSong?.errors[0]
-                                    ? tempSong.errors
-                                    : [],
+                                errors: [],
                                 downloaded: addOnly
                                     ? downloadedFileNames.has(musicFileName)
                                     : true,
