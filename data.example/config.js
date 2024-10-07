@@ -24,6 +24,8 @@ const userConfig = {
     // ncmDailyCheckIn: true,
     /** 进程优先级 */
     // priority: -7,
+    /** 显示歌词 */
+    // showLyric: true,
     /** espeak 语言 */
     // TTSEspeakLanguage: "zh",
     /** fs 包写入文件的选项 @type {import("fs").WriteFileOptions} */

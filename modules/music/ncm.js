@@ -1021,33 +1021,50 @@ async function search() {
             });
     });
 }
+/** @returns {Promise<{lyric: String, tLyric: String}>} */
 async function getLyricText(id) {
-    if (!id || isNaN(+id)) return "";
+    let lyric = "",
+        tLyric = "";
+    if (!id || isNaN(+id))
+        return {
+            lyric,
+            tLyric,
+        };
 
     try {
         const lrcPath = path.join(
-            appRootPath.get(),
-            "./data/lyrics/",
-            id + ".lrc"
-        );
-        if (fs.existsSync(lrcPath))
-            return (await fs.promises.readFile(lrcPath)).toString();
-        else {
+                appRootPath.get(),
+                "./data/lyrics/",
+                id + ".lrc"
+            ),
+            tLrcPath = path.join(
+                appRootPath.get(),
+                "./data/lyrics/",
+                id + ".t.lrc"
+            );
+        if (fs.existsSync(lrcPath) && fs.existsSync(tLrcPath)) {
+            lyric = (await fs.promises.readFile(lrcPath)).toString();
+            tLyric = (await fs.promises.readFile(tLrcPath)).toString();
+        } else {
             await initNcmApi();
-            const lrcText =
-                (
-                    await ncmStatusCheck(
-                        ncmApi.lyric({ id, cookie: loginStatus.cookie })
-                    )
-                ).body?.lrc?.lyric || "";
-            if (!lrcText) return "";
+            const l = (
+                await ncmStatusCheck(
+                    ncmApi.lyric({ id, cookie: loginStatus.cookie })
+                )
+            ).body;
+            lyric = l?.lrc?.lyric || "";
+            tLyric = l?.tlyric?.lyric || "";
 
             fs.mkdirSync(path.join(appRootPath.get(), "data/lyrics/"), {
                 recursive: true,
             });
-            fs.promises.writeFile(lrcPath, lrcText, writeFileOptions);
-            return lrcText;
+            await fs.promises.writeFile(lrcPath, lyric, writeFileOptions);
+            await fs.promises.writeFile(tLrcPath, tLyric, writeFileOptions);
         }
+        return {
+            lyric,
+            tLyric,
+        };
     } catch (e) {
         warn("无法获取歌词", e);
         return "";
