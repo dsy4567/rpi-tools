@@ -53,45 +53,59 @@ async function showLyric(id, currentSecOffset = 0, getCurrentSec) {
         let D = new Date(),
             lastText = "";
         lrcInterval = setInterval(async () => {
-            let /** @type {ReturnType<import("clrc").parse>[0]} */ l,
-                /** @type {ReturnType<import("clrc").parse>[0]} */ tL;
-            currentMilSec = new Date() - D + currentSecOffset;
-            for (let i = 0; i < lrc.length; i++) {
-                l = lrc[i];
+            try {
+                let /** @type {ReturnType<import("clrc").parse>[0]} */ l,
+                    /** @type {ReturnType<import("clrc").parse>[0]} */ tL;
+                currentMilSec = new Date() - D + currentSecOffset;
+                for (let i = 0; i < lrc.length; i++) {
+                    l = lrc[i];
 
-                if (l.type !== "lyric") continue;
-                if (l.type === "lyric" && currentMilSec >= l.startMillisecond)
+                    if (l.type !== "lyric") continue;
                     if (
-                        currentMilSec <=
-                            (lrc[i + 1]?.startMillisecond || 1145141919810) &&
-                        lrc[i]?.startMillisecond !==
-                            lrc[i + 1]?.startMillisecond
+                        l.type === "lyric" &&
+                        currentMilSec >= l.startMillisecond
                     )
-                        break;
+                        if (
+                            currentMilSec <=
+                                (lrc[i + 1]?.startMillisecond ||
+                                    1145141919810) &&
+                            l.startMillisecond !==
+                                lrc[i + 1]?.startMillisecond &&
+                            lrc[i + 1]?.type === "lyric"
+                        )
+                            break;
+                        else continue;
                     else continue;
-                else continue;
-            }
-            for (let i = 0; i < tLrc.length; i++) {
-                tL = tLrc[i];
+                }
+                for (let i = 0; i < tLrc.length; i++) {
+                    tL = tLrc[i];
 
-                if (tL.type !== "lyric") continue;
-                if (tL.type === "lyric" && currentMilSec >= tL.startMillisecond)
+                    if (tL.type !== "lyric") continue;
                     if (
-                        currentMilSec <=
-                            (tLrc[i + 1]?.startMillisecond || 1145141919810) &&
-                        tLrc[i]?.startMillisecond !==
-                            tLrc[i + 1]?.startMillisecond
+                        tL.type === "lyric" &&
+                        currentMilSec >= tL.startMillisecond
                     )
-                        break;
+                        if (
+                            currentMilSec <=
+                                (tLrc[i + 1]?.startMillisecond ||
+                                    1145141919810) &&
+                            tLrc[i]?.startMillisecond !==
+                                tLrc[i + 1]?.startMillisecond
+                        )
+                            break;
+                        else continue;
                     else continue;
-                else continue;
+                }
+                const lText = l?.content || "",
+                    tLText = tL?.content || "";
+                const text = `🎵 ${lText} ${tLText ? "📕 " + tLText : ""}`;
+                lastText != text &&
+                    menus.getMenuState() !== "input" &&
+                    menus.statusBar.setText((lastText = text));
+            } catch (e) {
+                error(e);
+                hideLyric();
             }
-            const lText = l?.content || "",
-                tLText = tL?.content || "";
-            const text = `🎵 ${lText} ${tLText ? "📕 " + tLText : ""}`;
-            lastText != text &&
-                menus.getMenuState() !== "input" &&
-                menus.statusBar.setText((lastText = text));
         }, 200);
         currentMilSecInterval = setInterval(async () => {
             try {
