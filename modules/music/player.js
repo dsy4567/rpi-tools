@@ -1,6 +1,5 @@
 "use strict";
 
-const cp = require("child_process");
 const fs = require("graceful-fs");
 const mpg123 = require("mpg123");
 const path = require("path");
@@ -200,6 +199,11 @@ async function updatePlayerStatus(
         playerStatus.song?.name || path.parse(playerStatus.path).name;
 }
 function playPause() {
+    if (errorCaught) {
+        controlledByUser = true;
+        errorCaught = false;
+        return next();
+    }
     mpgPlayer.file && mpgPlayer.pause();
 }
 async function previous() {
@@ -274,6 +278,7 @@ mpgPlayer.on("resume", e => {
     );
 });
 mpgPlayer.on("error", e => {
+    // TODO: 播放时长过短则判定损坏
     if (("" + e).includes("No stream opened")) return;
     error(tts("播放失败: " + playerStatus.songName, false), e);
     errorCaught = true;
