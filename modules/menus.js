@@ -1,10 +1,10 @@
 "use strict";
 
-const axios = require("axios");
 const cp = require("child_process");
 const readline = require("readline");
 
-const { rpicam, setPowerMode } = require("./toolkit");
+const { customCommands } = require("./config");
+const { rpicam, setPowerMode, netInfo, customCmd } = require("./toolkit");
 const { tts } = require("./tts");
 const { logger } = require("./utils");
 const { log, error, warn, emitter } = logger("menus");
@@ -110,6 +110,7 @@ const statusBar = {
     },
 };
 
+// TODO: 优化顺序
 const quickMenus = {
     添加到: "l",
     上下一曲: { 上一曲: "b", 下一曲: "n" },
@@ -130,50 +131,12 @@ const quickMenus = {
         },
         取消全部下载任务: "_ncm.cancelDownloading",
     },
-    更多选项: {
+    更多选项: {锁定音量:"_vol.lock",
         拍照: () => {
             rpicam();
         },
-        网络信息: async () => {
-            let netQuality = "无网络或网络极差";
-            let timeUsed = -1;
-            try {
-                const D = new Date();
-                await axios.get("https://music.163.com/?t=" + +D, {
-                    timeout: 25000,
-                    validateStatus: () => true,
-                });
-                timeUsed = +new Date() - D;
-
-                if (timeUsed < 0 || timeUsed >= 20000) {
-                    netQuality = "无网络或网络极差";
-                } else if (timeUsed >= 0 && timeUsed < 1500) {
-                    netQuality = "极好";
-                } else if (timeUsed >= 1500 && timeUsed < 5000) {
-                    netQuality = "较好";
-                } else if (timeUsed >= 5000 && timeUsed < 10000) {
-                    netQuality = "一般";
-                } else if (timeUsed >= 10000 && timeUsed < 20000) {
-                    netQuality = "较差";
-                }
-            } catch (e) {
-                netQuality = "无网络或网络极差";
-            }
-            try {
-                tts(
-                    `网络质量: ${netQuality} IP 地址: ${
-                        cp
-                            .execSync("hostname -I")
-                            .toString()
-                            .trim()
-                            .replaceAll(".", "点")
-                            .replaceAll(":", "冒号")
-                            .replaceAll(" ", " 和 ") || "无网络或未知"
-                    }`
-                );
-            } catch (e) {
-                tts("操作失败");
-            }
+        网络信息: () => {
+            netInfo();
         },
         电源: {
             定时关机: () => {
@@ -192,6 +155,11 @@ const quickMenus = {
         性能选项: async () => {
             setPowerMode(
                 await chooseItem("性能选项", ["省电", "平衡", "性能"])
+            );
+        },
+        自定义命令: async () => {
+            customCmd(
+                await chooseItem("自定义命令", Object.keys(customCommands))
             );
         },
     },

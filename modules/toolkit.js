@@ -1,7 +1,11 @@
 "use strict";
+
+const axios = require("axios");
 const { mkdirSync } = require("graceful-fs");
+const os = require("os");
 const path = require("path");
 
+const { customCommands } = require("./config");
 const { tts } = require("./tts");
 const { dateForFileName, appRootPath, logger, execFile } = require("./utils");
 const { log, error, warn } = logger("menus");
@@ -41,8 +45,74 @@ async function setPowerMode(/** @type {"省电" | "平衡" | "性能"} */ m) {
                 error(tts("无法更改性能选项", false), e);
             });
 }
+async function netInfo() {
+    let netQuality = "无网络或网络极差";
+    let timeUsed = -1;
+    try {
+        const D = new Date();
+        await axios.get("https://music.163.com/?t=" + +D, {
+            timeout: 25000,
+            validateStatus: () => true,
+        });
+        timeUsed = +new Date() - D;
+
+        if (timeUsed < 0 || timeUsed >= 20000) {
+            netQuality = "无网络或网络极差";
+        } else if (timeUsed >= 0 && timeUsed < 1500) {
+            netQuality = "极好";
+        } else if (timeUsed >= 1500 && timeUsed < 5000) {
+            netQuality = "较好";
+        } else if (timeUsed >= 5000 && timeUsed < 10000) {
+            netQuality = "一般";
+        } else if (timeUsed >= 10000 && timeUsed < 20000) {
+            netQuality = "较差";
+        }
+    } catch (e) {
+        netQuality = "无网络或网络极差";
+    }
+    try {
+        tts(
+            `网络质量: ${netQuality} IP 地址: ${(() => {
+                let IpAddresses = [];
+                var ifaces = os.networkInterfaces();
+                for (var dev in ifaces) {
+                    var iface = ifaces[dev];
+                    for (var i = 0; i < iface.length; i++) {
+                        var alias = iface[i];
+                        if (alias.address !== "127.0.0.1" && !alias.internal) {
+                            IpAddresses.push(alias.address);
+                        }
+                    }
+                }
+                return (
+                    IpAddresses.join("和")
+                        .replaceAll(".", "点")
+                        .replaceAll(":", "冒号") || "无网络或未知"
+                );
+            })()}`
+        );
+    } catch (e) {
+        tts("操作失败");
+    }
+}
+function customCmd(cmd) {
+    if (!cmd) return;
+    const file = customCommands[cmd]?.file,
+        args = customCommands[cmd]?.args || [];
+    if (!file || !args) return;
+    log(file, args);
+    execFile(file, args)
+        .then(() => {
+            log(tts("操作成功", false));
+        })
+        .catch(e => {
+            error(tts("操作失败", false), e);
+        });
+}
 
 module.exports = {
     rpicam,
     setPowerMode,
+    netInfo,
+    customCmd,
 };

@@ -26,13 +26,16 @@ const {
     ncmRetryTimeout,
     doNotUpdateNcmHistory,
     ncmDailyCheckIn,
+    ncmLoadApiOnStart,
 } = require("../config");
 
 async function initNcmApi() {
     if (!ncmApi) {
+        log("开始加载网易云音乐 API");
+        const D = new Date();
         ncmApi = require("NeteaseCloudMusicApi");
         axios = require("axios").default;
-        log("网易云音乐 API 已加载");
+        log(`网易云音乐 API 已加载, 用时 ${new Date() - D} ms`);
     }
     try {
         await login();
@@ -53,22 +56,22 @@ async function ncmStatusCheck(
     }
 }
 async function login(clear = false) {
-    if (clear)
-        loginStatus = {
-            cookie: "",
-            likePlaylistId: null,
-            logged: false,
-            nickname: null,
-            uid: null,
-            result: "",
-        };
-    if (
-        loginStatus.logged ||
-        loginStatus.result === "invalid" ||
-        loginStatus.result === "logging"
-    )
-        return;
     try {
+        if (clear)
+            loginStatus = {
+                cookie: "",
+                likePlaylistId: null,
+                logged: false,
+                nickname: null,
+                uid: null,
+                result: "",
+            };
+        if (
+            loginStatus.logged ||
+            loginStatus.result === "invalid" ||
+            loginStatus.result === "logging"
+        )
+            return;
         loginStatus.result = "logging";
 
         const cookieFilePath = path.join(
@@ -120,7 +123,7 @@ async function login(clear = false) {
         }
         log("登录成功", loginStatus.nickname, loginStatus.uid);
         ncmDailyCheckIn &&
-            ncmStatusCheck(
+            (await ncmStatusCheck(
                 ncmApi.daily_signin({ type: 1, cookie: loginStatus.cookie })
             )
                 .then(resp => {
@@ -128,7 +131,7 @@ async function login(clear = false) {
                 })
                 .catch(e => {
                     warn("签到失败", e);
-                });
+                }));
         return;
     } catch (e) {
         warn("无法获取登录信息", e);
@@ -142,6 +145,7 @@ async function login(clear = false) {
         };
     }
 }
+// TODO: 选择一个备份恢复
 async function backupPlaylistFile() {
     await fs.promises.copyFile(
         playlistPath,
@@ -1139,7 +1143,7 @@ if (fs.existsSync(playlistPath)) {
 } else updatePlaylistFile();
 fs.mkdirSync(path.join(appRootPath.get(), "data/musics/"), { recursive: true });
 
-setTimeout(initNcmApi, 30000);
+ncmLoadApiOnStart ? initNcmApi() : setTimeout(initNcmApi, 30000);
 
 module.exports = {
     cancelDownloading,

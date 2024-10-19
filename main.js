@@ -47,7 +47,7 @@
     handleUncaughtException &&
         process.on("uncaughtException", e => {
             error(`未捕获的异常: ${e.stack}`);
-            process.exit(1);
+            // process.exit(1);
         });
     process.on("warning", w => {
         warn(`其他警告: ${w.stack}`);

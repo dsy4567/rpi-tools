@@ -4,13 +4,15 @@ const vc = require("volume_supervisor").volumeControl;
 
 const menus = require("./menus");
 const tts = require("./tts").tts;
+//const { lockVolume } = require("./config");
 
+let lockVolume=false
 let vol = 30,
     autoSetVolCb = () => {};
 
 function addVol(add = 0) {
     vol += add;
-    if (vol > 100) vol = 100;
+    if (vol > 100) vol = 99;
     if (vol < 0) vol = 0;
     vc.setGlobalVolume(vol);
 }
@@ -42,17 +44,21 @@ menus.addMenuItems("音量调节", {
         tts("音量加加");
     },
 });
-
+menus.addMenuItems("主页", {
+            "_vol.lock": k => {
+               lockVolume=!lockVolume
+            },
+        });
 setInterval(async () => {
     try {
-        vol = await vc.getGlobalVolume();
-        if (vol >= 100) {
-            vol = 30;
+        // if (!lockVolume)
+        let tmpvol = await vc.getGlobalVolume();
+        if (tmpvol >= 100||lockVolume) {
+            tmpvol = vol;
             addVol();
-        } else if (vol <= 3) autoSetVolCb(15);
-        else if (vol <= 6) autoSetVolCb(30);
-        else if (vol <= 9) autoSetVolCb(60);
-        else autoSetVolCb(100);
+        }
+vol=tmpvol
+        autoSetVolCb(vol);
     } catch (e) {}
 }, 5000);
 

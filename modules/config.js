@@ -16,6 +16,10 @@ try {
 }
 
 const defaultConfig = {
+    /** 自定义 shell 命令 @type {Record<String, {file: String, args: String[]}>} */
+    customCommands: {
+        hello: { file: "espeak", args: ["hello"] },
+    },
     /** 默认播放模式 @type { import("./music/index").PlayMode } */
     defaultPlayMode: "shuffle",
     /** 不上传听歌历史 */
@@ -30,12 +34,16 @@ const defaultConfig = {
     jsonfileOptions: {
         spaces: 2,
     },
+    /** 锁定音量，防止更换输出设备后音量改变 */
+    lockVolume: true,
     /** 下载音乐时不带 cookie */
     ncmDownloadSongWithCookie: true,
-    /** 音乐下载失败时（可能触发反爬）的重试间隔，单位毫秒 */
-    ncmRetryTimeout: [60 * 1000, 3 * 60 * 1000, 5 * 60 * 1000],
     /** 自动签到 */
     ncmDailyCheckIn: true,
+    /** 尽快加载 API */
+    ncmLoadApiOnStart: false,
+    /** 音乐下载失败时（可能触发反爬）的重试间隔，单位毫秒 */
+    ncmRetryTimeout: [60 * 1000, 3 * 60 * 1000, 5 * 60 * 1000],
     /** 进程优先级 */
     priority: -7,
     /** 显示歌词 */

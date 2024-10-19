@@ -26,25 +26,34 @@
 
 > rpi-tools 仅可在 Linux 平台运行，如需在 Windows 进行开发，可在 Win 安装依赖后使用 WSL 或 Linux 虚拟机运行
 
--   下载源码，安装依赖
+1. 下载源码，安装依赖
 
     ```bash
-    # pulseaudio pulseaudio-module-bluetooth 等可根据需要替换为其他同类软件包，如 pipewire
-    sudo apt install mpg123 espeak pulseaudio pulseaudio-module-bluetooth bluez bluez-tools
-    # 不太重要但建议安装的依赖，不安装会导致少量功能残缺
+    # 安装音频服务 pipewire
+    sudo apt install pipewire pipewire-pulse pulseaudio-utils
+    # 或 pulseaudio
+    sudo apt install pulseaudio pulseaudio-module-bluetooth
+
+    # 安装其他必须依赖
+    sudo apt install mpg123 espeak bluez bluez-tools
+
+    # 非必须但建议安装的依赖，不安装会导致少量功能残缺
     sudo apt install moc cpufrequtils ffmpeg screen
+
     # 安装最新版的 nodejs
     curl -fsSL https://www.unpkg.com/n/bin/n | bash -s latest
-    npm i -g pnpm
 
+    # 克隆仓库，安装依赖
     git clone https://github.com/dsy4567/rpi-tools
     cd rpi-tools
     npm i --omit=optional
     ```
 
--   配置 sudo 免密（用于关机重启、设置进程优先级、使用 `rpicam` 拍照）
+2. 配置 sudo 免密（用于关机重启、设置进程优先级、使用 `rpicam` 拍照）
 
--   登录网易云音乐（可选）
+3. 登录网易云音乐（可选）
+
+    > **⚠ 警告：近期登录第三方网易云音乐客户端存在较大封号风险**
 
     在 `rpi-tools/data/` 文件夹下创建 `ncmCookie.txt`，内容参考：
 
@@ -52,7 +61,7 @@
     MUSIC_U=******;
     ```
 
--   运行
+4. 运行
 
     ```bash
     bash ./run.sh

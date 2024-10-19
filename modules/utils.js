@@ -83,12 +83,6 @@ function log(
     loggerEmitter.emit("afterLog", {});
 }
 
-const statusBar = {
-    show() {},
-    hide() {},
-    setText(text) {},
-};
-
 process.stdout._betterWrite = (data, wholeLine = true) => {
     if (wholeLine) process.stdout._betterClearLine();
     process.stdout._curPos += Buffer.from(data).length;
