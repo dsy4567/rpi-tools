@@ -110,60 +110,70 @@ const statusBar = {
     },
 };
 
-// TODO: 优化顺序
-const quickMenus = {
-    添加到: "l",
-    上下一曲: { 上一曲: "b", 下一曲: "n" },
-    "网易云音乐-更多选项": {
-        选择播放列表: "p",
-        切换播放模式: {
-            顺序播放: "N",
-            随机播放: "S",
-            单曲循环: "R",
+const /** @type {import(".").QuickMenu} */
+    quickMenus = {
+        常用: {
+            添加到: "l",
+            选择播放列表: "p",
+            切换播放模式: {
+                顺序播放: "N",
+                随机播放: "S",
+                单曲循环: "R",
+            },
         },
-        歌曲信息: "i",
-        更新播放列表: "U",
-        歌词: "_lyric.print",
-        更多: {
+        上下一曲: { 上一曲: "b", 下一曲: "n" },
+        网易云音乐: {
+            更新播放列表: "U",
+            取消全部下载任务: "_ncm.cancelDownloading",
+            歌词: "_lyric.print",
+            歌曲信息: "i",
             更新登录信息: "_ncm.loginAgain",
-            备份播放列表: "_ncm.backupPlaylistFile",
-            删除播放列表: "_ncm.removePlaylist",
-        },
-        取消全部下载任务: "_ncm.cancelDownloading",
-    },
-    更多选项: {锁定音量:"_vol.lock",
-        拍照: () => {
-            rpicam();
-        },
-        网络信息: () => {
-            netInfo();
-        },
-        电源: {
-            定时关机: () => {
-                cp.execSync("sudo shutdown 40");
-            },
-            取消定时关机: () => {
-                cp.execSync("sudo shutdown 40");
-            },
-            关机: () => {
-                cp.execSync("sudo shutdown 0");
-            },
-            重启: () => {
-                cp.execSync("sudo reboot");
+            更多: {
+                添加到: "l",
+                选择播放列表: "p",
+                切换播放模式: {
+                    顺序播放: "N",
+                    随机播放: "S",
+                    单曲循环: "R",
+                },
+                备份播放列表: "_ncm.backupPlaylistFile",
+                删除播放列表: "_ncm.removePlaylist",
             },
         },
-        性能选项: async () => {
-            setPowerMode(
-                await chooseItem("性能选项", ["省电", "平衡", "性能"])
-            );
+        更多选项: {
+            锁定音量: "_vol.lock",
+            拍照: () => {
+                rpicam();
+            },
+            网络信息: () => {
+                netInfo();
+            },
+            电源: {
+                定时关机: () => {
+                    cp.execSync("sudo shutdown 40");
+                },
+                取消定时关机: () => {
+                    cp.execSync("sudo shutdown 40");
+                },
+                关机: () => {
+                    cp.execSync("sudo shutdown 0");
+                },
+                重启: () => {
+                    cp.execSync("sudo reboot");
+                },
+            },
+            性能选项: async () => {
+                setPowerMode(
+                    await chooseItem("性能选项", ["省电", "平衡", "性能"])
+                );
+            },
+            自定义命令: async () => {
+                customCmd(
+                    await chooseItem("自定义命令", Object.keys(customCommands))
+                );
+            },
         },
-        自定义命令: async () => {
-            customCmd(
-                await chooseItem("自定义命令", Object.keys(customCommands))
-            );
-        },
-    },
-};
+    };
 
 let inpStr = "",
     inpPrompt = "",
@@ -185,17 +195,21 @@ let menus = {
         },
         M: async k => {
             try {
-                const f = async (quickMenus, prompt) => {
+                const f = async (
+                    /** @type {import(".").QuickMenu} */ quickMenus,
+                    prompt
+                ) => {
                     if (!quickMenus) return;
                     let m = await chooseItem(
                         prompt || "快捷菜单",
                         Object.keys(quickMenus)
                     );
-                    typeof quickMenus[m] === "string"
-                        ? activeMenu(m && quickMenus[m])
-                        : typeof quickMenus[m] === "function"
-                        ? await quickMenus[m]?.()
-                        : await f(quickMenus[m], m);
+                    const qmm = quickMenus[m];
+                    typeof qmm === "string"
+                        ? activeMenu(m && qmm)
+                        : typeof qmm === "function"
+                        ? await qmm?.()
+                        : await f(qmm, m);
                 };
                 await f(quickMenus);
             } catch (e) {
