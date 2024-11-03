@@ -25,8 +25,11 @@ const { log, error, warn } = logger("播放器");
 
 async function switchPlaylist(
     /** @type { String | Number | String[] } */ pl = "全部",
-    _controlledByUser = true
+    _controlledByUser = true,
+    customPlaylistEnded = false
 ) {
+    errorCaught = false;
+    isCustomPlaylist = false;
     const playlistFile = ncm.getPlaylistFile();
     const playlists = playlistFile.playlists;
     let tempCurrentNcmPlaylist = null,
@@ -35,6 +38,10 @@ async function switchPlaylist(
         tempMusicPaths = [],
         tempMusicPathsIndex = 0;
 
+    if (pl === "自定义") {
+        isCustomPlaylist = true;
+        pl = "全部";
+    }
     if (!isNaN(+pl)) {
         pl = Object.keys(playlists)[+pl];
         if (pl !== "全部" && !playlists[pl]?.songs[0])
@@ -53,6 +60,15 @@ async function switchPlaylist(
         tempMusicPaths = structuredClone(pl);
     } else if (!playlists[pl] || pl == "全部") {
         try {
+            if (isCustomPlaylist) {
+                if (!customPlaylistEnded)
+                    customPlaylist = await chooseItem(
+                        "选择自定义播放列表",
+                        fs.readdirSync(customPlaylistDir)
+                    );
+                musicDir = path.join(customPlaylistDir, customPlaylist);
+            } else musicDir = path.join(appRootPath.get(), "data/musics/");
+
             fs.readdirSync(musicDir).forEach(file => {
                 tempOriginalMusicPaths.push(path.join(musicDir, file));
                 tempMusicPaths.push(path.join(musicDir, file));
@@ -167,7 +183,7 @@ async function updatePlayerStatus(
         playing !== null &&
         (playerStatus.playing = playing);
     if (nextPath) {
-        const currentSongId = playerStatus.songId,
+        const currentSongId = isCustomPlaylist ? 0 : playerStatus.songId,
             currentPid = currentNcmPlaylist?.pid || 0;
         if (ended) {
             // 结束播放，准备播放下一曲
@@ -182,7 +198,7 @@ async function updatePlayerStatus(
         }
         playerStatus.totalSec = 0;
         playerStatus.path = nextPath;
-        playerStatus.songId = parseSongId(nextPath);
+        playerStatus.songId = isCustomPlaylist ? 0 : parseSongId(nextPath);
         playerStatus.song = ncm.getPlaylistFile().songs[playerStatus.songId];
         playerStatus.songName =
             playerStatus.song?.name || path.parse(playerStatus.path).name;
@@ -191,10 +207,14 @@ async function updatePlayerStatus(
     } else {
         playerStatus.totalSec = mpgPlayer.length;
         playerStatus.path = musicPaths[musicPathsIndex];
-        playerStatus.songId = parseSongId(playerStatus.path);
+        playerStatus.songId = isCustomPlaylist
+            ? 0
+            : parseSongId(playerStatus.path);
         playerStatus.currentSec = await getCurrentProgressSec();
     }
-    playerStatus.song = ncm.getPlaylistFile().songs[playerStatus.songId];
+    playerStatus.song = isCustomPlaylist
+        ? null
+        : ncm.getPlaylistFile().songs[playerStatus.songId];
     playerStatus.songName =
         playerStatus.song?.name || path.parse(playerStatus.path).name;
 }
@@ -218,7 +238,11 @@ async function previous() {
 async function next(_controlledByUser = true) {
     controlledByUser = _controlledByUser;
     if (++musicPathsIndex > musicPaths.length - 1) {
-        return switchPlaylist(currentPlaylist, controlledByUser);
+        return switchPlaylist(
+            isCustomPlaylist ? "自定义" : currentPlaylist,
+            controlledByUser,
+            isCustomPlaylist
+        );
         // musicPathsIndex = 0;
         // if (currentPlayMode === "shuffle") setPlayMode("shuffle");
     }
@@ -229,7 +253,8 @@ async function next(_controlledByUser = true) {
     }
 }
 
-const musicDir = path.join(appRootPath.get(), "data/musics/");
+let musicDir = path.join(appRootPath.get(), "data/musics/");
+const customPlaylistDir = path.join(appRootPath.get(), "data/customPlaylists/");
 
 const mpgPlayer = new mpg123.MpgPlayer();
 let originalMusicPaths = [],
@@ -247,7 +272,9 @@ let /** @type { "autonext" | "shuffle" | "repeat" } */ currentPlayMode =
         totalSec: 0,
         currentSec: 0,
     },
-    musicPathsIndex = 0;
+    musicPathsIndex = 0,
+    isCustomPlaylist = false,
+    customPlaylist = "";
 let controlledByUser = false,
     errorCaught = false;
 
@@ -271,6 +298,7 @@ mpgPlayer.on("end", async e => {
 mpgPlayer.on("resume", e => {
     log("播放");
     updatePlayerStatus(true);
+    if (!playerStatus.songId || isCustomPlaylist) return;
     lyric.showLyric(
         playerStatus.songId,
         playerStatus.currentSec * 1000,
@@ -374,6 +402,8 @@ if (enableMprisService) {
 
 addMenuItems("主页", {
     l: async k => {
+        if (!playerStatus.songId || isCustomPlaylist)
+            return tts("当前音乐不支持此操作");
         ncm.like(playerStatus.songId);
     },
     D: async k => {
@@ -438,7 +468,9 @@ addMenuItems("主页", {
                     (playerStatus.song?.artists.map(ar => ar.name) || []).join(
                         "、"
                     ) || "未知"
-                } 演唱, id ${playerStatus.songId}`
+                } 演唱, id ${
+                    (isCustomPlaylist ? 0 : playerStatus.songId) || "未知"
+                }`
             );
         } catch (e) {}
     },
@@ -461,10 +493,10 @@ addMenuItems("主页", {
     },
     p: async k => {
         switchPlaylist(
-            await chooseItem(
-                "选择播放列表",
-                Object.keys(ncm.getPlaylistFile().playlists)
-            )
+            await chooseItem("选择播放列表", [
+                "自定义",
+                ...Object.keys(ncm.getPlaylistFile().playlists),
+            ])
         );
     },
     R: k => {
@@ -543,6 +575,10 @@ ncm.playlistEmitter.on("addSong", data => {
     }
 });
 
+fs.mkdirSync(path.join(appRootPath.get(), "data/musics/"), { recursive: true });
+fs.mkdirSync(path.join(appRootPath.get(), "data/customPlaylists/"), {
+    recursive: true,
+});
 setPlayMode(defaultPlayMode);
 switchPlaylist(0, false);
 autoSetVol(v => {

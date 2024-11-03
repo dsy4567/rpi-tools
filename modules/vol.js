@@ -6,7 +6,7 @@ const menus = require("./menus");
 const tts = require("./tts").tts;
 //const { lockVolume } = require("./config");
 
-let lockVolume=false
+let lockVolume = false;
 let vol = 30,
     autoSetVolCb = () => {};
 
@@ -45,19 +45,18 @@ menus.addMenuItems("音量调节", {
     },
 });
 menus.addMenuItems("主页", {
-            "_vol.lock": k => {
-               lockVolume=!lockVolume
-            },
-        });
+    "_vol.lock": k => {
+        lockVolume = !lockVolume;
+    },
+});
 setInterval(async () => {
     try {
-        // if (!lockVolume)
         let tmpvol = await vc.getGlobalVolume();
-        if (tmpvol >= 100||lockVolume) {
+        if (tmpvol >= 100 || lockVolume) {
             tmpvol = vol;
             addVol();
         }
-vol=tmpvol
+        vol = tmpvol;
         autoSetVolCb(vol);
     } catch (e) {}
 }, 5000);

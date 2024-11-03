@@ -46,7 +46,8 @@
     # 克隆仓库，安装依赖
     git clone https://github.com/dsy4567/rpi-tools
     cd rpi-tools
-    npm i --omit=optional
+    sudo npm i -g pnpm
+    pnpm i --no-optional
     ```
 
 2. 配置 sudo 免密（用于关机重启、设置进程优先级、使用 `rpicam` 拍照）
