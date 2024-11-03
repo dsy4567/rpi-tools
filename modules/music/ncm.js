@@ -85,7 +85,14 @@ async function login(clear = false) {
                   .trim())
             : fs.writeFile(cookieFilePath, "", writeFileOptions);
         if (!loginStatus.cookie) {
-            loginStatus.result = "";
+            loginStatus = {
+                cookie: "",
+                likePlaylistId: null,
+                logged: false,
+                nickname: null,
+                uid: null,
+                result: "invalid",
+            };
             return warn("未登录");
         }
 
@@ -157,6 +164,11 @@ async function backupPlaylistFile() {
 }
 async function updatePlaylistFile() {
     try {
+        await jsonfile.writeFile(
+            fallbackPlaylistPath,
+            playlistFile,
+            jsonfileOptions
+        );
         await jsonfile.writeFile(playlistPath, playlistFile, jsonfileOptions);
     } catch (e) {
         error(e);
@@ -474,6 +486,7 @@ async function downloadSong(
                             mp => (lastMusicPath = mp)
                         ))
                     ) {
+                        lastMusicPath = "";
                         failures.push(`${m.id}-${artAndName}`);
                         break;
                     } else {
@@ -683,13 +696,18 @@ async function downloadPlaylist(
 }
 function removePlaylist() {
     chooseItem("选择播放列表", Object.keys(getPlaylistFile().playlists))
-        .then(v => {
+        .then(async v => {
             if (downloading) return tts("下载仍在继续, 无法操作");
             if (playlistFile.playlists[v].pid <= 0)
                 return tts("无法删除内置播放列表");
-            delete playlistFile.playlists[v];
-            updatePlaylistFile();
-            tts("删除成功");
+            if (
+                (await chooseItem(`是否确认删除 ${v}`, ["否", "是"], true)) ===
+                "是"
+            ) {
+                delete playlistFile.playlists[v];
+                updatePlaylistFile();
+                tts("删除成功");
+            }
         })
         .catch(e => error(tts("无法删除播放列表", false), e));
 }
@@ -870,89 +888,94 @@ async function like(/** @type {Number} */ id) {
                 appRootPath.get(),
                 "data/ncmWait2Add2Like.json"
             );
-            ncmStatusCheck(
-                ncmApi.like({
-                    id,
-                    cookie: loginStatus.cookie,
-                    like: "" + like,
-                    r: "" + Math.random(),
-                })
-            )
-                .then(async d => {
-                    try {
-                        if (!loginStatus.likePlaylistId) return;
-                        if (!fs.existsSync(p)) {
-                            jsonfile.writeFileSync(
-                                p,
-                                { add: [], remove: [] },
-                                jsonfileOptions
-                            );
-                        }
-                        let /** @type {{ add: Number[], remove: Number[] }} */ j =
-                                jsonfile.readFileSync(p);
-                        try {
-                            const add = j.add.join(","),
-                                remove = j.remove.join(",");
-                            add &&
-                                (await ncmStatusCheck(
-                                    ncmApi.playlist_tracks({
-                                        pid: loginStatus.likePlaylistId,
-                                        tracks: add,
-                                        op: "add",
-                                        cookie: loginStatus.cookie,
-                                        r: "" + Math.random(),
-                                    })
-                                ));
-                            remove &&
-                                (await ncmStatusCheck(
-                                    ncmApi.playlist_tracks({
-                                        pid: loginStatus.likePlaylistId,
-                                        tracks: remove,
-                                        op: "del",
-                                        cookie: loginStatus.cookie,
-                                        r: "" + Math.random(),
-                                    })
-                                ));
-                        } catch (e) {
-                            error(e);
-                            return tts("无法添加到网易云账号内的喜欢");
-                        }
-
-                        tts("已同步网易云账号内的喜欢");
-                        jsonfile.writeFile(
+            const writeJSON = () => {
+                try {
+                    if (!fs.existsSync(p)) {
+                        jsonfile.writeFileSync(
                             p,
                             { add: [], remove: [] },
                             jsonfileOptions
                         );
-                    } catch (e) {
-                        error(e);
                     }
-                })
-                .catch(e => {
+                    let j = jsonfile.readFileSync(p);
+                    if (like) {
+                        j.remove.includes(id) &&
+                            j.remove.splice(j.remove.indexOf(id), 1);
+                        !j.add.includes(id) && j.add.push(id);
+                    } else {
+                        j.add.includes(id) &&
+                            j.add.splice(j.remove.indexOf(id), 1);
+                        !j.remove.includes(id) && j.remove.push(id);
+                    }
+                    jsonfile.writeFile(p, j, jsonfileOptions);
+                } catch (e) {
                     error(e);
-                    try {
-                        if (!fs.existsSync(p)) {
-                            jsonfile.writeFileSync(
-                                p,
-                                { add: [], remove: [] },
-                                jsonfileOptions
-                            );
-                        }
-                        let j = jsonfile.readFileSync(p);
-                        if (like) {
-                            j.remove.includes(id) &&
-                                j.remove.splice(j.remove.indexOf(id), 1);
-                            !j.add.includes(id) && j.add.push(id);
-                        } else {
-                            j.add.includes(id) &&
-                                j.add.splice(j.remove.indexOf(id), 1);
-                            !j.remove.includes(id) && j.remove.push(id);
-                        }
-                        jsonfile.writeFile(p, j, jsonfileOptions);
-                    } catch (e) {
-                        error(e);
-                    }
-                });
+                }
+            };
+            loginStatus.logged
+                ? ncmStatusCheck(
+                      ncmApi.like({
+                          id,
+                          cookie: loginStatus.cookie,
+                          like: "" + like,
+                          r: "" + Math.random(),
+                      })
+                  )
+                      .then(async d => {
+                          try {
+                              if (!loginStatus.likePlaylistId) return;
+                              if (!fs.existsSync(p)) {
+                                  jsonfile.writeFileSync(
+                                      p,
+                                      { add: [], remove: [] },
+                                      jsonfileOptions
+                                  );
+                              }
+                              let /** @type {{ add: Number[], remove: Number[] }} */ j =
+                                      jsonfile.readFileSync(p);
+                              try {
+                                  const add = j.add.join(","),
+                                      remove = j.remove.join(",");
+                                  add &&
+                                      (await ncmStatusCheck(
+                                          ncmApi.playlist_tracks({
+                                              pid: loginStatus.likePlaylistId,
+                                              tracks: add,
+                                              op: "add",
+                                              cookie: loginStatus.cookie,
+                                              r: "" + Math.random(),
+                                          })
+                                      ));
+                                  remove &&
+                                      (await ncmStatusCheck(
+                                          ncmApi.playlist_tracks({
+                                              pid: loginStatus.likePlaylistId,
+                                              tracks: remove,
+                                              op: "del",
+                                              cookie: loginStatus.cookie,
+                                              r: "" + Math.random(),
+                                          })
+                                      ));
+                              } catch (e) {
+                                  error(e);
+                                  return tts("无法添加到网易云账号内的喜欢");
+                              }
+
+                              tts("已同步网易云账号内的喜欢");
+                              jsonfile.writeFile(
+                                  p,
+                                  { add: [], remove: [] },
+                                  jsonfileOptions
+                              );
+                          } catch (e) {
+                              error(e);
+                          }
+                      })
+                      .catch(e => {
+                          error(e);
+                          writeJSON();
+                      })
+                : writeJSON();
         };
 
         const likePlaylist = playlistFile.playlists[p];
@@ -1044,9 +1067,11 @@ async function getLyricText(id) {
                 "./data/lyrics/",
                 id + ".t.lrc"
             );
-        if (fs.existsSync(lrcPath) && fs.existsSync(tLrcPath)) {
+        if (fs.existsSync(lrcPath)) {
             lyric = (await fs.promises.readFile(lrcPath)).toString();
-            tLyric = (await fs.promises.readFile(tLrcPath)).toString();
+            tLyric = fs.existsSync(tLrcPath)
+                ? (await fs.promises.readFile(tLrcPath)).toString()
+                : "";
         } else {
             await initNcmApi();
             const l = (
@@ -1073,7 +1098,11 @@ async function getLyricText(id) {
     }
 }
 
-const playlistPath = path.join(appRootPath.get(), "data/ncmPlaylist.json");
+const playlistPath = path.join(appRootPath.get(), "data/ncmPlaylist.json"),
+    fallbackPlaylistPath = path.join(
+        appRootPath.get(),
+        "data/ncmPlaylist-fallback.json"
+    );
 
 const /** @type {import(".").PlaylistEmitterT} */ playlistEmitter =
         new EventEmitter();
@@ -1133,6 +1162,7 @@ addMenuItems("主页", {
     },
 });
 
+// TODO: fallback
 if (fs.existsSync(playlistPath)) {
     try {
         playlistFile = jsonfile.readFileSync(playlistPath);
@@ -1141,7 +1171,6 @@ if (fs.existsSync(playlistPath)) {
         backupPlaylistFile().then(() => updatePlaylistFile());
     }
 } else updatePlaylistFile();
-fs.mkdirSync(path.join(appRootPath.get(), "data/musics/"), { recursive: true });
 
 ncmLoadApiOnStart ? initNcmApi() : setTimeout(initNcmApi, 30000);
 

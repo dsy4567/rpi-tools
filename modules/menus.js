@@ -83,7 +83,8 @@ async function input(/** @type {String} */ prompt) {
 /** @returns {Promise<String>} */
 async function chooseItem(
     /** @type {String} */ prompt,
-    /** @type {String[]} */ items
+    /** @type {String[]} */ items,
+    resetIndex = false
 ) {
     return new Promise((resolve, reject) => {
         pushMenuState("chooseItem");
@@ -91,7 +92,9 @@ async function chooseItem(
         items.splice(1, 0, "返回");
         itemChooserStates[prompt] = {
             items,
-            selectedIndex: itemChooserStates[prompt]?.selectedIndex || 0,
+            selectedIndex: resetIndex
+                ? 0
+                : itemChooserStates[prompt]?.selectedIndex || 0,
         };
         tts(
             prompt + " " + items[itemChooserStates[prompt]?.selectedIndex || 0]
