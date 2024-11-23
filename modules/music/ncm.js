@@ -1047,7 +1047,7 @@ async function search() {
     });
 }
 /** @returns {Promise<{lyric: String, tLyric: String}>} */
-async function getLyricText(id) {
+async function getRawLyricText(id) {
     let lyric = "",
         tLyric = "";
     if (!id || isNaN(+id))
@@ -1189,5 +1189,5 @@ module.exports = {
     like,
     search,
     playlistEmitter,
-    getLyricText,
+    getRawLyricText,
 };

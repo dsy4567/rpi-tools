@@ -1,6 +1,6 @@
 "use strict";
 
-const clrc = require("clrc");
+const lu = require("lrc-utils").default;
 
 const config = require("../config");
 const ncm = require("./ncm");
@@ -12,11 +12,17 @@ const { log, error, warn } = logger("歌词");
 let /** @type {NodeJS.Timeout} */ lrcInterval,
     /** @type {NodeJS.Timeout} */ currentMilSecInterval,
     currentId = 0,
-    currentLrcText = "",
-    currentTLrcText = "";
+    currentRawLrcText = "",
+    currentRawTLrcText = "",
+    lastStatusBarText = "无歌词";
 
-async function showLyric(id, currentSecOffset = 0, getCurrentSec) {
+function noLyric() {
+    hideLyric();
+    lastStatusBarText = "无歌词";
+}
+async function showLyric(id, currentMillSecOffset = 0, getCurrentSec) {
     try {
+        if (!id) return noLyric();
         if (!config.showLyric) {
             return hideLyric();
         }
@@ -25,104 +31,87 @@ async function showLyric(id, currentSecOffset = 0, getCurrentSec) {
 
         let lrcText = "",
             tLrcText = "";
-        if (currentId == id && currentLrcText) {
-            lrcText = currentLrcText;
-            tLrcText = currentTLrcText;
+        if (currentId == id && currentRawLrcText) {
+            lrcText = currentRawLrcText;
+            tLrcText = currentRawTLrcText;
         } else {
-            const result = await ncm.getLyricText(id);
+            const result = await ncm.getRawLyricText(id);
             currentId = id;
-            currentLrcText = lrcText = result.lyric;
-            currentTLrcText = tLrcText = result.tLyric;
+            currentRawLrcText = lrcText = result.lyric;
+            currentRawTLrcText = tLrcText = result.tLyric;
         }
-        if (!lrcText)
-            return (
-                menus.getMenuState() !== "input" && menus.statusBar.setText("")
-            );
+        if (!lrcText) return noLyric();
         if (!tLrcText) tLrcText = "";
 
-        let lrc = clrc.parse(lrcText),
-            tLrc = clrc.parse(tLrcText),
+        let parsedLrc = lu.parse(lrcText).lines,
+            parsedTLrc = lu.parse(tLrcText).lines,
             currentMilSec = 0;
 
         pause();
-        if (!lrc[0])
-            return (
-                menus.getMenuState() !== "input" && menus.statusBar.setText("")
-            );
+        if (!parsedLrc[0]) return noLyric();
 
-        let D = new Date(),
-            lastText = "";
-        lrcInterval = setInterval(async () => {
+        let D = new Date();
+        const update = async () => {
             try {
-                let /** @type {ReturnType<import("clrc").parse>[0]} */ l,
-                    /** @type {ReturnType<import("clrc").parse>[0]} */ tL;
-                currentMilSec = new Date() - D + currentSecOffset;
-                for (let i = 0; i < lrc.length; i++) {
-                    l = lrc[i];
+                let /** @type {(typeof parsedLrc)[0]} */ l,
+                    /** @type {(typeof parsedTLrc)[0]} */ tL;
+                currentMilSec = new Date() - D + currentMillSecOffset;
+                for (let i = 0; i < parsedLrc.length; i++) {
+                    const tempL = parsedLrc[i];
+                    const nextL = parsedLrc[i + 1];
 
-                    if (l.type !== "lyric") continue;
-                    if (
-                        l.type === "lyric" &&
-                        currentMilSec >= l.startMillisecond
-                    )
+                    if (currentMilSec >= tempL.start * 1000)
                         if (
                             currentMilSec <=
-                                (lrc[i + 1]?.startMillisecond ||
-                                    1145141919810) &&
-                            l.startMillisecond !==
-                                lrc[i + 1]?.startMillisecond &&
-                            lrc[i + 1]?.type === "lyric"
-                        )
+                                (nextL?.start ?? 1145141919810) * 1000 &&
+                            tempL.startMillisecond !== nextL?.start * 1000
+                        ) {
+                            l = tempL;
                             break;
-                        else continue;
+                        } else continue;
                     else continue;
                 }
-                for (let i = 0; i < tLrc.length; i++) {
-                    tL = tLrc[i];
+                for (let i = 0; i < parsedTLrc.length; i++) {
+                    const tempTL = parsedTLrc[i];
+                    const nextTL = parsedTLrc[i + 1];
 
-                    if (tL.type !== "lyric") continue;
-                    if (
-                        tL.type === "lyric" &&
-                        currentMilSec >= tL.startMillisecond
-                    )
+                    if (currentMilSec >= tempTL.start * 1000)
                         if (
                             currentMilSec <=
-                                (tLrc[i + 1]?.startMillisecond ||
-                                    1145141919810) &&
-                            tLrc[i]?.startMillisecond !==
-                                tLrc[i + 1]?.startMillisecond
-                        )
+                                (nextTL?.start ?? 1145141919810) * 1000 &&
+                            tempTL.startMillisecond !== nextTL?.start * 1000
+                        ) {
+                            tL = tempTL;
                             break;
-                        else continue;
+                        } else continue;
                     else continue;
                 }
-                const lText = l?.content || "",
-                    tLText = tL?.content || "";
-                const text = `🎵 ${lText} ${tLText ? "📕 " + tLText : ""}`;
-                lastText != text &&
+                const lText = l?.content.map(l => l.text).join() || "",
+                    tLText = tL?.content.map(l => l.text).join() || "";
+                const statusBarText = lText + (tLText && ` (${tLText})`);
+                lastStatusBarText != statusBarText &&
                     menus.getMenuState() !== "input" &&
-                    menus.statusBar.setText((lastText = text));
+                    menus.statusBar.setText(
+                        (lastStatusBarText = statusBarText)
+                    );
             } catch (e) {
                 error(e);
                 hideLyric();
             }
-        }, 200);
+        };
+        lrcInterval = setInterval(update, 100);
+        update();
         currentMilSecInterval = setInterval(async () => {
             try {
                 if (typeof getCurrentSec !== "function") return;
                 const ms = +(await getCurrentSec()) * 1000 || 0;
                 if (isNaN(ms)) return;
-                currentSecOffset = ms;
+                currentMillSecOffset = ms;
                 D = new Date();
             } catch (e) {
                 error(e);
             }
         }, 5000);
-        menus.addMenuItems("主页", {
-            "_lyric.print": k => {
-                tts(lastText);
-            },
-        });
     } catch (e) {
         error("无法展示歌词", e);
     }
@@ -131,13 +120,19 @@ function hideLyric() {
     clearInterval(lrcInterval);
     clearInterval(currentMilSecInterval);
     currentId = 0;
-    currentLrcText = "";
-    currentTLrcText = "";
+    currentRawLrcText = "";
+    currentRawTLrcText = "";
     menus.getMenuState() !== "input" && menus.statusBar.setText("");
 }
 function pause() {
     clearInterval(currentMilSecInterval);
     clearInterval(lrcInterval);
 }
+
+menus.addMenuItems("主页", {
+    L: k => {
+        tts(lastStatusBarText);
+    },
+});
 
 module.exports = { showLyric, hideLyric, pause };
