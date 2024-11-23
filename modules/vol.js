@@ -22,31 +22,37 @@ function autoSetVol(/** @type {(vol: Number) => void} */ cb) {
 }
 
 menus.addMenuItems("主页", {
-    v: k => {
-        menus.pushMenuState("音量调节");
-    },
-});
-menus.addMenuItems("音量调节", {
-    b: k => {
+    g: k => {
         addVol(-3);
         tts("音量减");
     },
-    g: k => {
+    t: k => {
         addVol(-5);
         tts("音量减减");
     },
-    n: k => {
+    h: k => {
         addVol(3);
         tts("音量加");
     },
-    h: k => {
+    y: k => {
         addVol(5);
         tts("音量加加");
     },
-});
-menus.addMenuItems("主页", {
+    "_vol.adjust": k => {
+        menus.pushMenuState("音量调节");
+    },
     "_vol.lock": k => {
         lockVolume = !lockVolume;
+    },
+});
+menus.addMenuItems("音量调节", {
+    n: k => {
+        addVol(-3);
+        tts("音量减");
+    },
+    b: k => {
+        addVol(3);
+        tts("音量加");
     },
 });
 setInterval(async () => {

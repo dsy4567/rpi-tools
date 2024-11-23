@@ -57,7 +57,7 @@ function activeMenu(/** @type {String} */ key) {
 
     const menu = menus[getMenuState()],
         f = menu?.[key];
-    if (key == "h" && !disableHelp) {
+    if (key == "H" && !disableHelp) {
         log("当前可用按键", Object.keys(menu));
     }
     try {
@@ -128,7 +128,7 @@ const /** @type {import(".").QuickMenu} */
         网易云音乐: {
             更新播放列表: "U",
             取消全部下载任务: "_ncm.cancelDownloading",
-            歌词: "_lyric.print",
+            歌词: "L",
             歌曲信息: "i",
             更新登录信息: "_ncm.loginAgain",
             更多: {
@@ -145,6 +145,7 @@ const /** @type {import(".").QuickMenu} */
         },
         更多选项: {
             锁定音量: "_vol.lock",
+            音量调节: "_vol.adjust",
             拍照: () => {
                 rpicam();
             },
@@ -193,10 +194,10 @@ let menus = {
         Q: k => {
             process.exit(0);
         },
-        m: k => {
+        M: k => {
             pushMenuState("更多");
         },
-        M: async k => {
+        m: async k => {
             try {
                 const f = async (
                     /** @type {import(".").QuickMenu} */ quickMenus,
@@ -281,6 +282,20 @@ let menus = {
             tts(items[state.selectedIndex]);
         },
         "\r": k => {
+            const state = itemChooserStates[currentItemChooser],
+                items = state.items,
+                item = items[state.selectedIndex];
+            item !== "返回" && itemChooserCb(item);
+            popMenuState();
+        },
+        " ": k => {
+            const state = itemChooserStates[currentItemChooser],
+                items = state.items,
+                item = items[state.selectedIndex];
+            item !== "返回" && itemChooserCb(item);
+            popMenuState();
+        },
+        m: k => {
             const state = itemChooserStates[currentItemChooser],
                 items = state.items,
                 item = items[state.selectedIndex];

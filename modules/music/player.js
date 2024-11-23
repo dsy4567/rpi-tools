@@ -298,7 +298,6 @@ mpgPlayer.on("end", async e => {
 mpgPlayer.on("resume", e => {
     log("播放");
     updatePlayerStatus(true);
-    if (!playerStatus.songId || isCustomPlaylist) return;
     lyric.showLyric(
         playerStatus.songId,
         playerStatus.currentSec * 1000,
@@ -370,7 +369,7 @@ if (enableMprisService) {
                                 if (playerStatus.playing) {
                                     activeMenu("n"); // 下一曲
                                 } else {
-                                    activeMenu("M"); // 快捷菜单
+                                    activeMenu("m"); // 快捷菜单
                                 }
                             } else {
                                 activeMenu("n"); // 下一个菜单项
@@ -380,7 +379,7 @@ if (enableMprisService) {
                         case "previous": // 上一曲按钮
                             if (isMainMenu()) {
                                 if (playerStatus.playing) {
-                                    activeMenu("M"); // 快捷菜单
+                                    activeMenu("m"); // 快捷菜单
                                 } else {
                                     activeMenu("b"); // 上一曲
                                 }
