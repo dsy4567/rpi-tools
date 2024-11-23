@@ -5,7 +5,7 @@ const readline = require("readline");
 
 const { customCommands } = require("./config");
 const { rpicam, setPowerMode, netInfo, customCmd } = require("./toolkit");
-const { tts } = require("./tts");
+const { tts, speakLastText } = require("./tts");
 const { logger } = require("./utils");
 const { log, error, warn, emitter } = logger("menus");
 
@@ -193,6 +193,9 @@ let menus = {
     主页: {
         Q: k => {
             process.exit(0);
+        },
+        T: k => {
+            speakLastText();
         },
         M: k => {
             pushMenuState("更多");
