@@ -435,7 +435,7 @@ async function downloadSong(
                                         ? loginStatus.cookie
                                         : undefined,
                                 }),
-                                u = resp.body.data[0].url;
+                                u = resp.body.data?.[0]?.url;
                             if (!u) {
                                 for (const p of sd.privileges) {
                                     if (p.id == m.id && p.st < 0) {
@@ -637,6 +637,7 @@ async function downloadPlaylist(
             j = {
                 body: {
                     songs: [],
+                    privileges: [],
                 },
             };
             for (let i = 0; i < 34; i++) {
@@ -653,9 +654,14 @@ async function downloadPlaylist(
                         i * 300 + (o?.body?.songs?.length || 0)
                     } 首`
                 );
-                if (o?.body?.songs?.[0])
+                if (o?.body?.songs?.[0]) {
                     j.body.songs = j.body.songs.concat(o.body.songs);
-                else break;
+                    if (o?.body?.privileges?.[0]) {
+                        j.body.privileges = j.body.privileges.concat(
+                            o.body.privileges
+                        );
+                    }
+                } else break;
             }
             downloadSong(j.body, pid, await getPlaylistName(), addOnly, true);
             return;
