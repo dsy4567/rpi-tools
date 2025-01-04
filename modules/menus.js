@@ -14,7 +14,6 @@ function pushMenuState(/** @type {String} */ s, _disableHelp = false) {
     log("menuState:", s);
     tts(s);
     menuStates.push(s);
-    (!s.startsWith("_") || s === "_") && resetPopMenuStateTimeout();
 }
 function popMenuState(_disableHelp = false) {
     disableHelp = _disableHelp;
@@ -157,7 +156,7 @@ const /** @type {import(".").QuickMenu} */
                     cp.execSync("sudo shutdown 40");
                 },
                 取消定时关机: () => {
-                    cp.execSync("sudo shutdown 40");
+                    cp.execSync("sudo shutdown -c");
                 },
                 关机: () => {
                     cp.execSync("sudo shutdown 0");
