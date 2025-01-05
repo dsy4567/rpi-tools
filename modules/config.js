@@ -20,8 +20,6 @@ const defaultConfig = {
     customCommands: {
         hello: { file: "espeak", args: ["hello"] },
     },
-    /** 默认播放模式 @type { import("./music/index").PlayMode } */
-    defaultPlayMode: "shuffle",
     /** 不上传听歌历史 */
     doNotUpdateNcmHistory: false,
     /** 运行 mpris-proxy */
@@ -43,7 +41,9 @@ const defaultConfig = {
     /** 尽快加载 API */
     ncmLoadApiOnStart: false,
     /** 音乐下载失败时（可能触发反爬）的重试间隔，单位毫秒 */
-    ncmRetryTimeout: [60 * 1000, 3 * 60 * 1000, 5 * 60 * 1000],
+    ncmRetryTimeout: [30 * 1000, 60 * 1000, 2 * 60 * 1000],
+    /** 默认播放模式 @type { import("./music/index").PlayMode } */
+    playerPlayMode: "default",
     /** 进程优先级 */
     priority: -7,
     /** 显示歌词 */

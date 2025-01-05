@@ -14,7 +14,7 @@ type Song = {
 };
 type Playlist = {
     name: string;
-    pid: number;
+    /** 全部0 喜欢-2 最喜欢-3 日推-1 */ pid: number;
     songs: number[];
 };
 type PlaylistFile = {
@@ -31,7 +31,7 @@ type LoginStatus = {
     likePlaylistId: null | number;
 };
 
-type PlayMode = "autonext" | "shuffle" | "repeat";
+type PlayMode = "autonext" | "shuffle" | "repeat" | "reversed" | "default";
 
 interface PlaylistEmitterT extends EventEmitter {
     emit(

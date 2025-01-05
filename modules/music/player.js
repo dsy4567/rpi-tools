@@ -6,7 +6,7 @@ const path = require("path");
 
 const {
     enableMprisService,
-    defaultPlayMode,
+    playerPlayMode,
     runMprisProxy,
 } = require("../config");
 const {
@@ -37,10 +37,13 @@ async function switchPlaylist(
         tempOriginalMusicPaths = [],
         tempMusicPaths = [],
         tempMusicPathsIndex = 0;
+    let tempPl = pl,
+        tempIsCustomPlaylist = isCustomPlaylist,
+        tempCustomPlaylist = customPlaylist;
 
-    if (pl === "自定义") {
-        isCustomPlaylist = true;
-        pl = "全部";
+    if (tempPl === "自定义") {
+        tempIsCustomPlaylist = true;
+        tempPl = "全部";
     }
     if (!isNaN(+pl)) {
         pl = Object.keys(playlists)[+pl];
@@ -60,12 +63,16 @@ async function switchPlaylist(
         tempMusicPaths = structuredClone(pl);
     } else if (!playlists[pl] || pl == "全部") {
         try {
-            if (isCustomPlaylist) {
+            if (tempIsCustomPlaylist) {
                 if (!customPlaylistEnded)
-                    customPlaylist = await chooseItem(
+                    tempCustomPlaylist = await chooseItem(
                         "选择自定义播放列表",
                         fs.readdirSync(customPlaylistDir)
                     );
+                if (!tempCustomPlaylist) return;
+                pl = tempPl;
+                isCustomPlaylist = tempIsCustomPlaylist;
+                customPlaylist = tempCustomPlaylist;
                 musicDir = path.join(customPlaylistDir, customPlaylist);
             } else musicDir = path.join(appRootPath.get(), "data/musics/");
 
@@ -105,7 +112,7 @@ async function switchPlaylist(
     musicPaths = tempMusicPaths;
     musicPathsIndex = tempMusicPathsIndex;
     controlledByUser = _controlledByUser;
-    pl == "日推" ? setPlayMode("autonext", true) : setPlayMode(undefined, true);
+    setPlayMode(undefined, true);
     await updatePlayerStatus(
         null,
         !controlledByUser,
@@ -135,6 +142,11 @@ function setPlayMode(
     /** @type { import(".").PlayMode } */ mode = currentPlayMode,
     noResetIndex = false
 ) {
+    if (mode === "default") {
+        if (currentNcmPlaylist?.pid === -1) mode = "autonext";
+        else if (originalMusicPaths.length >= 20) mode = "shuffle";
+        else mode = "autonext";
+    }
     switch (mode) {
         case "autonext":
             musicPaths = structuredClone(originalMusicPaths);
@@ -144,7 +156,9 @@ function setPlayMode(
             break;
         case "repeat":
             break;
-
+        case "reversed":
+            musicPaths = structuredClone(originalMusicPaths).reverse();
+            break;
         default:
             return;
     }
@@ -260,9 +274,8 @@ const mpgPlayer = new mpg123.MpgPlayer();
 let originalMusicPaths = [],
     musicPaths = [],
     /** @type { import(".").Playlist | null } */ currentNcmPlaylist = null,
-    /** @type { String | Number | String[] } */ currentPlaylist;
-let /** @type { "autonext" | "shuffle" | "repeat" } */ currentPlayMode =
-        "autonext",
+    /** "<pid>-<pName>" | <index> | ["path/to/foo.mp3"]  @type { String | Number | String[] } */ currentPlaylist;
+let /** @type { import(".").PlayMode } */ currentPlayMode = "default",
     playerStatus = {
         playing: false,
         path: "",
@@ -309,7 +322,7 @@ mpgPlayer.on("error", e => {
     if (("" + e).includes("No stream opened")) return;
     error(tts("播放失败: " + playerStatus.songName, false), e);
     errorCaught = true;
-    if (currentPlayMode === "repeat") currentPlayMode = "autonext";
+    if (currentPlayMode === "repeat") currentPlayMode = "default";
     playerStatus.song?.errors.push("" + e);
     if (!fs.existsSync(playerStatus.path) && playerStatus.song)
         playerStatus.song.downloaded = false;
@@ -412,6 +425,7 @@ addMenuItems("主页", {
             "仅添加歌单",
             "备份播放列表",
             "修复",
+            "立即重试失败的下载任务",
             "取消全部下载任务",
         ];
         const choice = await chooseItem("下载", opinions);
@@ -451,6 +465,9 @@ addMenuItems("主页", {
                 break;
             case "修复":
                 ncm.fixSongs().then(() => switchPlaylist(currentPlaylist));
+                break;
+            case "立即重试失败的下载任务":
+                ncm.retryFailedDownloadTask();
                 break;
             case "取消全部下载任务":
                 ncm.cancelDownloading();
@@ -509,6 +526,14 @@ addMenuItems("主页", {
     N: k => {
         setPlayMode("autonext");
         tts("顺序播放");
+    },
+    "_player.setPlayMode_default": k => {
+        setPlayMode("default");
+        tts("默认");
+    },
+    "_player.setPlayMode_reversed": k => {
+        setPlayMode("reversed");
+        tts("倒序播放");
     },
     b: k => {
         controlledByUser = true;
@@ -578,7 +603,7 @@ fs.mkdirSync(path.join(appRootPath.get(), "data/musics/"), { recursive: true });
 fs.mkdirSync(path.join(appRootPath.get(), "data/customPlaylists/"), {
     recursive: true,
 });
-setPlayMode(defaultPlayMode);
+playerPlayMode !== "default" && setPlayMode(playerPlayMode);
 switchPlaylist(0, false);
 autoSetVol(v => {
     mpgPlayer.volume(v);
