@@ -112,7 +112,7 @@ async function switchPlaylist(
     musicPaths = tempMusicPaths;
     musicPathsIndex = tempMusicPathsIndex;
     controlledByUser = _controlledByUser;
-    setPlayMode(undefined, true);
+    setPlayMode(undefined, true, tempCurrentNcmPlaylist);
     await updatePlayerStatus(
         null,
         !controlledByUser,
@@ -140,10 +140,11 @@ async function switchPlaylist(
 }
 function setPlayMode(
     /** @type { import(".").PlayMode } */ mode = currentPlayMode,
-    noResetIndex = false
+    noResetIndex = false,
+    _currentNcmPlaylist = currentNcmPlaylist
 ) {
     if (mode === "default") {
-        if (currentNcmPlaylist?.pid === -1) mode = "autonext";
+        if (_currentNcmPlaylist?.pid === -1) mode = "autonext";
         else if (originalMusicPaths.length >= 20) mode = "shuffle";
         else mode = "autonext";
     }
@@ -155,6 +156,7 @@ function setPlayMode(
             musicPaths = shuffle(structuredClone(originalMusicPaths));
             break;
         case "repeat":
+            currentPlayMode = "repeat";
             break;
         case "reversed":
             musicPaths = structuredClone(originalMusicPaths).reverse();
@@ -171,7 +173,6 @@ function setPlayMode(
             }
         }
     }
-    currentPlayMode = mode;
 }
 /** @returns { Promise<number> } */
 async function getCurrentProgressSec() {
