@@ -218,6 +218,9 @@ function cancelDownloading() {
     clearRetrySleeper?.();
     log(tts("已取消全部下载任务", false));
 }
+function retryFailedDownloadTask() {
+    clearRetrySleeper?.();
+}
 /** 下载有 MV 的付费音乐, 成功返回 false, 失败返回 true */
 async function downloadMV(
     /** @type { Number | String } */ songId,
@@ -555,7 +558,7 @@ async function downloadSong(
 
     downloading = false;
     downloadSong(...(downloadList.shift() || []));
-    return lastMusicPath;
+    return failures[0] ? "" : lastMusicPath;
 }
 async function downloadPlaylist(
     /** -1: 日推, -2: 喜欢, -3: 最喜欢 */ pid,
@@ -1006,50 +1009,113 @@ async function search() {
         if (!loginStatus.logged) tts("未登录");
         const kwd = await input("搜索词");
         if (!kwd) return;
-        ncmStatusCheck(
-            ncmApi.search({
-                keywords: kwd,
-                cookie: loginStatus.cookie,
-                type: 1018,
-            })
-        )
-            .then(async resp => {
-                const songs = resp.body.result?.song?.songs || [],
-                    playLists = resp.body.result?.playList?.playLists || [];
-                let items = {};
-                if (
-                    (await chooseItem(`${kwd}的搜索结果`, ["单曲", "歌单"])) ==
-                    "单曲"
-                ) {
-                    songs.forEach(item => {
-                        items[
-                            `${item.name} 由 ${item.ar.map(
-                                ar => ar.name
-                            )} 演唱 id ${item.id}`
-                        ] = item.id;
+
+        switch (
+            await chooseItem(`搜索类型`, ["单曲", "单曲搜索建议", "歌单"])
+        ) {
+            case "单曲":
+                ncmStatusCheck(
+                    ncmApi.search({
+                        keywords: kwd,
+                        cookie: loginStatus.cookie,
+                        type: 1,
+                    })
+                )
+                    .then(async resp => {
+                        const songs = resp.body.result?.songs || [];
+                        let items = {};
+
+                        songs.forEach(item => {
+                            items[
+                                `${item.name} 由 ${item.artists.map(
+                                    ar => ar.name
+                                )} 演唱 id ${item.id}`
+                            ] = item.id;
+                        });
+                        const keys = Object.keys(items);
+                        resolve(
+                            downloadSong(
+                                +items[
+                                    await chooseItem(
+                                        `${kwd}的单曲搜索结果`,
+                                        keys
+                                    )
+                                ]
+                            )
+                        );
+                    })
+                    .catch(e => {
+                        error(e);
+                        tts("搜索失败");
                     });
-                    const keys = Object.keys(items);
-                    resolve(
-                        downloadSong(
+                break;
+            case "单曲搜索建议":
+                ncmStatusCheck(
+                    ncmApi.search_suggest({
+                        keywords: kwd,
+                        cookie: loginStatus.cookie,
+                    })
+                )
+                    .then(async resp => {
+                        const songs = resp.body.result?.songs || [];
+                        let items = {};
+
+                        songs.forEach(item => {
+                            items[
+                                `${item.name} 由 ${item.artists.map(
+                                    ar => ar.name
+                                )} 演唱 id ${item.id}`
+                            ] = item.id;
+                        });
+                        const keys = Object.keys(items);
+                        resolve(
+                            downloadSong(
+                                +items[
+                                    await chooseItem(
+                                        `${kwd}的单曲搜索建议`,
+                                        keys
+                                    )
+                                ]
+                            )
+                        );
+                    })
+                    .catch(e => {
+                        error(e);
+                        tts("搜索失败");
+                    });
+                break;
+            case "歌单":
+                ncmStatusCheck(
+                    ncmApi.search({
+                        keywords: kwd,
+                        cookie: loginStatus.cookie,
+                        type: 1000,
+                    })
+                )
+                    .then(async resp => {
+                        const songs = (playLists =
+                            resp.body.result?.playlists || []);
+                        let items = {};
+
+                        playLists.forEach(item => {
+                            items[`${item.name} id ${item.id}`] = item.id;
+                        });
+                        const keys = Object.keys(items);
+                        downloadPlaylist(
                             +items[
-                                await chooseItem(`${kwd}的单曲搜索结果`, keys)
+                                await chooseItem(`${kwd}的歌单搜索结果`, keys)
                             ]
-                        )
-                    );
-                } else {
-                    playLists.forEach(item => {
-                        items[`${item.name} id ${item.id}`] = item.id;
+                        ).catch(e => error(tts("歌单下载失败", false), e));
+                    })
+                    .catch(e => {
+                        error(e);
+                        tts("搜索失败");
                     });
-                    const keys = Object.keys(items);
-                    downloadPlaylist(
-                        +items[await chooseItem(`${kwd}的歌单搜索结果`, keys)]
-                    ).catch(e => error(tts("歌单下载失败", false), e));
-                }
-            })
-            .catch(e => {
-                error(e);
-                tts("搜索失败");
-            });
+                break;
+
+            default:
+                break;
+        }
     });
 }
 /** @returns {Promise<{lyric: String, tLyric: String}>} */
@@ -1114,6 +1180,7 @@ const /** @type {import(".").PlaylistEmitterT} */ playlistEmitter =
         new EventEmitter();
 
 let downloading = false,
+    downloadQueue = [],
     /** @type {NodeJS.Timeout} */ clearRetrySleeper,
     /** @type { Array[] } */ downloadList = [],
     /** @type { import(".").PlaylistFile } */ playlistFile = {
@@ -1122,7 +1189,7 @@ let downloading = false,
             全部: {
                 name: "全部",
                 pid: 0,
-                songs: [], // NOTE: "全部" 歌单不应有任何歌曲, 读取时应作特殊处理
+                songs: [], // NOTE: "全部" 歌单在 ncmPlaylist.json 中不应有任何歌曲, 读取时应作特殊处理
             },
             喜欢: {
                 name: "喜欢",
@@ -1184,6 +1251,7 @@ module.exports = {
     cancelDownloading,
     login,
     fixSongs,
+    retryFailedDownloadTask,
     downloadPlaylist,
     downloadSong,
     ncmStatusCheck,
