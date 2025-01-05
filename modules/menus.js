@@ -5,7 +5,7 @@ const readline = require("readline");
 
 const { customCommands } = require("./config");
 const { rpicam, setPowerMode, netInfo, customCmd } = require("./toolkit");
-const { tts, speakLastText } = require("./tts");
+const { tts, speakLastText, isSpeaking } = require("./tts");
 const { logger } = require("./utils");
 const { log, error, warn, emitter } = logger("menus");
 
@@ -26,6 +26,7 @@ function popMenuState(_disableHelp = false) {
 function resetPopMenuStateTimeout() {
     clearTimeout(popMenuStateTimeout);
     popMenuStateTimeout = setTimeout(() => {
+        if (isSpeaking()) return resetPopMenuStateTimeout();
         if (getMenuState() !== "主页") popMenuState();
     }, 15000);
 }
@@ -120,6 +121,8 @@ const /** @type {import(".").QuickMenu} */
             切换播放模式: {
                 顺序播放: "N",
                 随机播放: "S",
+                默认: "_player.setPlayMode_default",
+                倒序播放: "_player.setPlayMode_reversed",
                 单曲循环: "R",
             },
         },

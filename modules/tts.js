@@ -8,11 +8,12 @@ const { log, error } = logger("TTS");
 
 let /** @type {cp.ChildProcess} */ p,
     /** @type {NodeJS.Timeout} */ timeout,
+    speaking = false,
     lastText = "";
 const replacement = {
     点: ".",
     ".$&": /[0-9]+/g,
-    月正绫: "乐正绫", // le4 -> yue4
+    月正: "乐正", // le4 -> yue4
 };
 
 function tts(/** @type {String} */ t, echo = true) {
@@ -30,7 +31,7 @@ function tts(/** @type {String} */ t, echo = true) {
         } catch (e) {
             error(e);
         }
-    }, 100);
+    }, 50);
     return t;
 }
 
@@ -38,5 +39,8 @@ module.exports = {
     tts,
     speakLastText() {
         tts(lastText);
+    },
+    isSpeaking() {
+        return p?.exitCode === null;
     },
 };
