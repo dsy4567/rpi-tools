@@ -24,6 +24,7 @@
     "dependencies": {
         "@jellybrick/mpris-service": "^2.1.4",
         "NeteaseCloudMusicApi": "file:./NeteaseCloudMusicApi",
+        "NeteaseCloudMusicApi-hook": "file:./NeteaseCloudMusicApi-hook",
         "axios": "^1.7.4",
         "cli-color": "^2.0.4",
         "find-process": "^1.4.7",

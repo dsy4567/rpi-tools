@@ -1,3 +1,6 @@
 [submodule "NeteaseCloudMusicApi"]
 	path = NeteaseCloudMusicApi
 	url = https://gitlab.com/Binaryify/neteasecloudmusicapi
+[submodule "NeteaseCloudMusicApi-hook"]
+	path = NeteaseCloudMusicApi-hook
+	url = https://github.com/dsy4567/NeteaseCloudMusicApi-hook
