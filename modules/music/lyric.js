@@ -136,3 +136,5 @@ menus.addMenuItems("主页", {
 });
 
 module.exports = { showLyric, hideLyric, pause };
+
+// TODO: 暂停后恢复播放

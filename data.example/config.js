@@ -7,7 +7,7 @@ const userConfig = {
     //     hello: { file: "espeak", args: ["hello"] },
     // },
     /** 不上传听歌历史 */
-    // doNotUpdateNcmHistory: false,
+    // doNotUpdateNcmHistory: true,
     /** 运行 mpris-proxy */
     // runMprisProxy: true,
     /** 启用 mpris 服务（主要用于蓝牙耳机按键） */
@@ -20,10 +20,12 @@ const userConfig = {
     // },
     /** 锁定音量，防止更换输出设备等情况导致音量改变 */
     // lockVolume: true,
+    /** NeteaseCloudMusicApi-hook 的 connectionToken */
+    // ncmApiConnectionToken: "",
     /** 下载音乐时不带 cookie */
     // ncmDownloadSongWithCookie: true,
     /** 自动签到 */
-    // ncmDailyCheckIn: true,
+    // ncmDailyCheckIn: false,
     /** 尽快加载 API */
     // ncmLoadApiOnStart: false,
     /** 音乐下载失败时（可能触发反爬）的重试间隔，单位毫秒 */

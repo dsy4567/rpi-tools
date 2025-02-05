@@ -44,23 +44,32 @@
     curl -fsSL https://www.unpkg.com/n/bin/n | bash -s latest
 
     # 克隆仓库，安装依赖
-    git clone https://github.com/dsy4567/rpi-tools
+    git clone --recursive https://github.com/dsy4567/rpi-tools
     cd rpi-tools
     sudo npm i -g pnpm
     pnpm i --no-optional
+
+    # 如果开发时遇到编辑器自动补全异常，请尝试执行以下命令
+    cd ./NeteaseCloudMusicApi
+    pnpm i --no-optional
+    cd ./NeteaseCloudMusicApi-hook
+    pnpm i --no-optional
+
     ```
 
-2. 配置 sudo 免密（用于关机重启、设置进程优先级、使用 `rpicam` 拍照）
+2. 配置 sudo 免密（用于关机重启、设置进程优先级、使用 `rpicam` 拍照等）
 
 3. 登录网易云音乐（可选）
 
-    > **⚠ 警告：近期登录第三方网易云音乐客户端存在较大封号风险**
+    > **⚠ 警告：登录第三方网易云音乐客户端存在较大封号风险**
 
     在 `rpi-tools/data/` 文件夹下创建 `ncmCookie.txt`，内容参考：
 
     ```text
     MUSIC_U=******;
     ```
+
+    或者，按照控制台输出的提示，使用浏览器登录网易云音乐
 
 4. 运行
 

@@ -2,12 +2,17 @@
 
 const axios = require("axios");
 const { mkdirSync } = require("graceful-fs");
-const os = require("os");
 const path = require("path");
 
 const { customCommands } = require("./config");
 const { tts } = require("./tts");
-const { dateForFileName, appRootPath, logger, execFile } = require("./utils");
+const {
+    dateForFileName,
+    appRootPath,
+    logger,
+    execFile,
+    getIp,
+} = require("./utils");
 const { log, error, warn } = logger("menus");
 
 function rpicam() {
@@ -73,19 +78,9 @@ async function netInfo() {
     try {
         tts(
             `网络质量: ${netQuality} IP 地址: ${(() => {
-                let IpAddresses = [];
-                var ifaces = os.networkInterfaces();
-                for (var dev in ifaces) {
-                    var iface = ifaces[dev];
-                    for (var i = 0; i < iface.length; i++) {
-                        var alias = iface[i];
-                        if (alias.address !== "127.0.0.1" && !alias.internal) {
-                            IpAddresses.push(alias.address);
-                        }
-                    }
-                }
                 return (
-                    IpAddresses.join("和")
+                    getIp
+                        .join("和")
                         .replaceAll(".", "点")
                         .replaceAll(":", "冒号") || "无网络或未知"
                 );

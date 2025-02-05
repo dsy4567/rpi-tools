@@ -1,9 +1,11 @@
+// @ts-nocheck
 "use strict";
 
 let /** @type { import("axios") } */ axios;
 const { EventEmitter } = require("events");
 const fs = require("graceful-fs");
 const jsonfile = require("jsonfile");
+const ncmApiHook = require("NeteaseCloudMusicApi-hook");
 let /** @type { import("NeteaseCloudMusicApi") } */ ncmApi;
 const path = require("path");
 const sf = require("sanitize-filename");
@@ -15,6 +17,7 @@ const {
     appRootPath,
     execFile,
     dateForFileName,
+    getIp,
 } = require("../utils");
 const { log, error, warn } = logger("网易云音乐");
 const tts = require("../tts").tts;
@@ -27,22 +30,9 @@ const {
     doNotUpdateNcmHistory,
     ncmDailyCheckIn,
     ncmLoadApiOnStart,
+    ncmApiConnectionToken,
 } = require("../config");
 
-async function initNcmApi() {
-    if (!ncmApi) {
-        log("开始加载网易云音乐 API");
-        const D = new Date();
-        ncmApi = require("NeteaseCloudMusicApi");
-        axios = require("axios").default;
-        log(`网易云音乐 API 已加载, 用时 ${new Date() - D} ms`);
-    }
-    try {
-        await login();
-    } catch (e) {
-        warn("登录失败", e);
-    }
-}
 async function ncmStatusCheck(
     /** @type {Promise<import("NeteaseCloudMusicApi").Response>} */ res
 ) {
@@ -55,6 +45,57 @@ async function ncmStatusCheck(
         throw e;
     }
 }
+function showInjectingPromot() {
+    let wsUrl = new URL(ncmApiHook.server.getServerStatus().wsUrl),
+        jsUrl = new URL(ncmApiHook.server.getServerStatus().jsUrl);
+    wsUrl.hostname = jsUrl.hostname = getIp()[0];
+    console.log(`
+//******************************//
+
+请使用浏览器打开并在 https://music.163.com 登录你的网易云帐号，
+然后打开开发者工具（F12 / Ctrl + Shift + I），在控制台（Console）输入以下代码:
+
+(() => {
+    let s = document.createElement("script");
+    s.dataset.connectionToken = "${("" + wsUrl).split("/").at(-1)}";
+    s.src = "${jsUrl}";
+    document.head.append(s);
+})();
+
+//******************************//
+`);
+}
+async function initNcmApi() {
+    if (!ncmApi) {
+        log("开始加载网易云音乐 API");
+        const D = new Date();
+        ncmApi = require("NeteaseCloudMusicApi");
+        ncmApiHook.loginStatus.get().on("update", ls => {
+            login(true);
+
+            if (!ncmApiHook.server.getServerStatus()._wsConnection) {
+                warn("与浏览器的连接断开，请重新连接");
+                showInjectingPromot();
+            }
+        });
+        ncmApi = ncmApiHook.init({
+            connectionToken: ncmApiConnectionToken,
+            debug: false,
+            target: require.resolve("NeteaseCloudMusicApi"),
+            serverHost: "0.0.0.0",
+            forceConnection: false,
+            forceWeapi: false,
+        }).exports;
+        setTimeout(showInjectingPromot, 3000);
+        axios = require("axios");
+        log(`网易云音乐 API 已加载, 用时 ${+new Date() - +D} ms`);
+    }
+    try {
+        await login();
+    } catch (e) {
+        warn("登录失败", e);
+    }
+}
 async function login(clear = false) {
     try {
         if (clear)
@@ -64,7 +105,7 @@ async function login(clear = false) {
                 logged: false,
                 nickname: null,
                 uid: null,
-                result: "",
+                result: "null",
             };
         if (
             loginStatus.logged ||
@@ -74,26 +115,32 @@ async function login(clear = false) {
             return;
         loginStatus.result = "logging";
 
-        const cookieFilePath = path.join(
-            appRootPath.get(),
-            "data/ncmCookie.txt"
-        );
-        fs.existsSync(cookieFilePath)
-            ? (loginStatus.cookie = fs
-                  .readFileSync(cookieFilePath)
-                  .toString()
-                  .trim())
-            : fs.writeFile(cookieFilePath, "", writeFileOptions);
-        if (!loginStatus.cookie) {
-            loginStatus = {
-                cookie: "",
-                likePlaylistId: null,
-                logged: false,
-                nickname: null,
-                uid: null,
-                result: "invalid",
-            };
-            return warn("未登录");
+        if (ncmApiHook.server.getServerStatus()._wsConnection) {
+            ncmApiHook.options.forceWeapi.set(true);
+        } else {
+            ncmApiHook.options.forceWeapi.set(false);
+
+            const cookieFilePath = path.join(
+                appRootPath.get(),
+                "data/ncmCookie.txt"
+            );
+            fs.existsSync(cookieFilePath)
+                ? (loginStatus.cookie = fs
+                      .readFileSync(cookieFilePath)
+                      .toString()
+                      .trim())
+                : fs.writeFile(cookieFilePath, "", writeFileOptions);
+            if (!loginStatus.cookie) {
+                loginStatus = {
+                    cookie: "",
+                    likePlaylistId: null,
+                    logged: false,
+                    nickname: null,
+                    uid: null,
+                    result: "invalid",
+                };
+                return warn("未登录");
+            }
         }
 
         const p = (await ncmApi.login_status({ cookie: loginStatus.cookie }))
@@ -228,6 +275,7 @@ async function downloadMV(
     /** @type { String } */ musicPath,
     /** @type { (musicPath: string) => void } */ callback
 ) {
+    let p = "";
     try {
         if (!songId || isNaN((songId = +songId))) return true;
         if (!mvId || isNaN((mvId = +mvId))) return true;
@@ -259,17 +307,15 @@ async function downloadMV(
             recursive: true,
         });
 
-        const p = path.join(
-            appRootPath.get(),
-            "data/temp/",
-            `tempMV-${songId}.mp4`
-        );
+        p = path.join(appRootPath.get(), "data/temp/", `tempMV-${songId}.mp4`);
         fs.writeFileSync(p, r2.data, writeFileOptions);
 
         await execFile("ffmpeg", ["-i", p, "-y", "-vn", musicPath], 180000);
         try {
             fs.rmSync(p, { force: true });
-        } catch (e) {}
+        } catch (e) {
+            warn("无法删除临时文件", e);
+        }
 
         callback(musicPath);
         return false;
@@ -277,7 +323,9 @@ async function downloadMV(
         error("无法下载 MV", e);
         try {
             fs.rmSync(p, { force: true });
-        } catch (e) {}
+        } catch (e) {
+            warn("无法删除临时文件", e);
+        }
         return true;
     }
 }
@@ -553,7 +601,7 @@ async function downloadSong(
         log(tts(`下载完成, 共 ${failures.length} 首无法下载`, false));
         failures[0] && warn("无法下载:", failures.join(", "));
     } catch (e) {
-        error(tts("下载失败: 无法获取歌曲信息或其他错误", false, false), e);
+        error(tts("下载失败: 无法获取歌曲信息或其他错误", false), e);
     }
 
     downloading = false;
@@ -1093,8 +1141,7 @@ async function search() {
                     })
                 )
                     .then(async resp => {
-                        const songs = (playLists =
-                            resp.body.result?.playlists || []);
+                        const playLists = resp.body.result?.playlists || [];
                         let items = {};
 
                         playLists.forEach(item => {
@@ -1181,7 +1228,7 @@ const /** @type {import(".").PlaylistEmitterT} */ playlistEmitter =
 
 let downloading = false,
     downloadQueue = [],
-    /** @type {NodeJS.Timeout} */ clearRetrySleeper,
+    /** @type {() => void} */ clearRetrySleeper,
     /** @type { Array[] } */ downloadList = [],
     /** @type { import(".").PlaylistFile } */ playlistFile = {
         version: 1,
@@ -1216,7 +1263,7 @@ let downloading = false,
         logged: false,
         nickname: null,
         uid: null,
-        result: "",
+        result: "null",
     },
     /** @type {NodeJS.Timeout} */ historyTimeout;
 

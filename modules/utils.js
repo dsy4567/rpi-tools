@@ -4,6 +4,7 @@ const clc = require("cli-color");
 const cp = require("child_process");
 const { EventEmitter } = require("events");
 const fs = require("graceful-fs");
+const os = require("os");
 const path = require("path");
 const sf = require("sanitize-filename");
 
@@ -175,5 +176,20 @@ module.exports = {
                     chp.kill(9);
                 }, exitTimeout);
         });
+    },
+    getIp() {
+        /** @type {String} */
+        let IpAddresses = [];
+        let ifaces = os.networkInterfaces();
+        for (let dev in ifaces) {
+            let iface = ifaces[dev];
+            for (let i = 0; i < iface.length; i++) {
+                let alias = iface[i];
+                if (alias.address !== "127.0.0.1" && !alias.internal) {
+                    IpAddresses.push(alias.address);
+                }
+            }
+        }
+        return IpAddresses;
     },
 };
