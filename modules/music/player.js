@@ -143,10 +143,14 @@ function setPlayMode(
     noResetIndex = false,
     _currentNcmPlaylist = currentNcmPlaylist
 ) {
+    let setValue_currentPlayMode = false;
     if (mode === "default") {
         if (_currentNcmPlaylist?.pid === -1) mode = "autonext";
         else if (originalMusicPaths.length >= 20) mode = "shuffle";
         else mode = "autonext";
+        currentPlayMode = "default";
+    } else {
+        setValue_currentPlayMode = true;
     }
     switch (mode) {
         case "autonext":
@@ -163,6 +167,9 @@ function setPlayMode(
             break;
         default:
             return;
+    }
+    if (setValue_currentPlayMode) {
+        currentPlayMode = mode;
     }
     if (!noResetIndex) {
         musicPathsIndex = 0;
